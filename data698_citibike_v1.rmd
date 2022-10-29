@@ -1,0 +1,252 @@
+---
+title: "DATA 698 Project CitiBike"
+author: "Philip Tanofsky"
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+# CitiBike Project
+
+
+```{r}
+# Required packages
+library(tidyverse)
+library(ggplot2)
+library(skimr)
+library(jsonlite)
+library(tidyjson)
+library(geosphere)
+```
+
+## Data Gathering
+
+### Bike Trips
+
+```{r}
+# Read in one month of CitiBike trip data
+# Note, this is a start, as I will want to eventually have ~2 years worth of data
+
+# CSV
+
+trip_data_202001_df <- read.csv("../../data/CitiBike/BikeTripData/2020/JC-202001-citibike-tripdata.csv", check.names=TRUE)
+
+trip_data_202001_df
+```
+
+```{r}
+# Count of columns
+length(trip_data_202001_df)
+```
+
+```{r}
+# Count of rows
+nrow(trip_data_202001_df)
+```
+
+```{r}
+trip_data_202001_df$duration <- round(difftime(trip_data_202001_df$stoptime, trip_data_202001_df$starttime, units = "mins"), 2)
+trip_data_202001_df
+```
+```{r}
+distHaversine(c(trip_data_202001_df$start.station.longitude, trip_data_202001_df$start.station.latitude), 
+                                              c(trip_data_202001_df$end.station.longitude, trip_data_202001_df$end.station.latitude))
+```
+
+
+```{r}
+# calculate distance between the 2 points
+# https://stackoverflow.com/questions/31668163/geographic-geospatial-distance-between-2-lists-of-lat-lon-points-coordinates
+trip_data_202001_df <- trip_data_202001_df %>%
+  rowwise() %>%
+    mutate(newcolumn_distance = distHaversine(c(start.station.longitude, start.station.latitude), 
+                                              c(end.station.longitude, end.station.latitude)))
+
+```
+
+```{r}
+trip_data_202001_df
+```
+
+```{r}
+# Columns I want to consider adding
+# Duration of trip
+# Distance "as the crow flies" ... simply distance based on lat longs/ lat longs
+
+# 36000 seconds is 10 hours
+# 7200 seconds is 2 hours
+trip_data_202001_df = trip_data_202001_df[trip_data_202001_df$tripduration <= 3600, ] 
+```
+
+```{r}
+# 1222 missing values
+sum(is.na(trip_data_202001_df))
+```
+
+```{r}
+colSums(is.na(trip_data_202001_df))
+# Results imply some bikes are abandoned and not returned to the docking station
+```
+
+```{r}
+summary(trip_data_202001_df)
+```
+
+```{r}
+skim(trip_data_202001_df)
+```
+
+```{r}
+ggplot(trip_data_202001_df, aes(x=tripduration, color=usertype)) + 
+ geom_histogram(bins=60, aes(y=..density..), colour="black", fill="white")+
+ geom_density(alpha=.2, fill="#FF6666") 
+```
+
+```{r}
+ggplot(trip_data_202001_df, aes(x=newcolumn_distance)) + 
+ geom_histogram(bins=60, aes(y=..density..), colour="black", fill="white")+
+ geom_density(alpha=.2, fill="#FF6666") 
+```
+
+```{r}
+# Overlaid histograms
+ggplot(trip_data_202001_df, aes(x=tripduration, color=usertype)) +
+  geom_histogram(fill="white", alpha=0.5, position="identity")
+```
+
+```{r}
+ggplot(trip_data_202001_df, aes(x=tripduration, color=usertype)) +
+  geom_histogram(fill="white", alpha=0.5, position="identity")
+```
+
+```{r}
+ggplot(trip_data_202001_df, aes(x=newcolumn_distance, color=usertype)) +
+  geom_histogram(fill="white", alpha=0.5, position="identity")
+```
+
+```{r}
+# Time Series plots
+# https://cran.r-project.org/web/packages/timetk/vignettes/TK04_Plotting_Time_Series.html
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+### Station Information
+
+```{r}
+# Read in the station information data: json file
+doc <- rjson::fromJSON(file="../../data/CitiBike/StationData/Station_Information.json")
+
+station_info_df <- doc$data$stations %>% spread_all %>% as.data.frame()
+
+station_info_df
+```
+
+### Station Elevation 
+
+```{r}
+
+```
+
+## EDA
+
+```{r}
+
+```
+inst
+## Visualization
+
+```{r}
+# https://towardsdatascience.com/animating-your-data-visualizations-like-a-boss-using-r-f94ae20843e3
+```
+
+## Simulation
+
+```{r}
+
+```
+
+## Availability Model
+
+```{r}
+
+```
+
+
+## Conclusion
+
+```{r}
+
+```
+
+
+~~ ~~
+
+Notes to self on the items to implement
+1. Starting with notes to self from the articles
+- idea for paper: forecasting for new stations
+- Top 10 most used stations
+- Top 10 least used stations
+- OLS modeling
+- Distance to nearest subway station
+- Distance to nearest ***
+- Some sort of proximity variable for each station
+- # of other stations with .4 km (1/4 mile)
+- Could still build a model based on variables of distance to next station and also the economic and attractions of the area
+- Plot graphs of actual bike share trips against the model predictions
+- Only consider trips that are between the 1st (301m and 180s) and the 99th percentile (11,594m and 5220s), that's a good way to avoid people not really using the bike and outliers of longer trips
+- Operational efficiency
+- They use "data visualization, data fusion, data analysis, and statistical analysis"
+- Good use of variables that's actually very simple
+- *Scale-free power-law distribution, which is a common pattern shown in other human mobility examples.
+- I need to build an equation that measures balance at a station, and use that value as a key to determining the availability of bike at a station at any given time.
+- citibiketracker.com: Doesn't seem to work
+- bikes.oobrien.com
+- This works based on above URL: https://bikesharemap.com/newyork/#/12.782377488081352/-73.996/40.7323/
+- What about predicting the profit of citibike? In regards to rebalancing? In regards to more stations?
+- The question to ask is ... what is the goal of the BSS network?
+- This article used the Google Maps Directions API to estimate the actual biking route between the origin and destination of each trip. Reasonable biking routes with road network distances were generated.
+- I will need to decide the x-meter buffer (250 or 400 or other)
+- Consider stations with little activity aka, less than one per hour
+- **Average hourly bike demand
+- ** Standard deviation of hourly bike demand
+- Consider hyper parameters when appropriate
+- LASSO: previously used for road traffic prediction
+- SVR: Support Vector Regression models have been applied widely for short-term traffic flow prediction, travel time prediction, traveler socio-demographic role prediction
+- XGBoost: gradient boosted regression tree technique
+- Use clustering or grouping Gephi tool able to identify communities.
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```

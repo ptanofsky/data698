@@ -1,0 +1,584 @@
+---
+title: "Citi Bike Scratch v1"
+author: "Philip Tanofsky"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+Using this tutorial: https://bar.rady.ucsd.edu/Viz1.html
+
+```{r}
+# Required packages
+library(tidyverse)
+library(ggplot2)
+library(skimr)
+#library(tidyjson)
+#library(geosphere)
+library(lubridate)
+library(ggmap)
+#library(forcats)
+#library(scales)
+```
+
+From https://ride.citibikenyc.com/system-data
+
+User Type (Customer = 24-hour pass or 3-day pass user; Subscriber = Annual Member)
+Gender (Zero=unknown; 1=male; 2=female)
+
+```{r}
+citibike <- read.csv("201508-citibike-tripdata.csv", check.names=TRUE)
+
+citibike
+```
+
+```{r}
+citibike <- read_csv('201508-citibike-tripdata.csv') %>%
+  mutate(day = factor(mday(mdy_hms(starttime))),
+         start.hour=factor(hour(mdy_hms(starttime))),
+         weekday = wday(mdy_hms(starttime),label=TRUE,abbr=TRUE))
+
+citibike
+```
+
+```{r}
+
+```
+
+```{r}
+ggplot(data=citibike, aes(x=start.hour)) +
+  geom_bar() +
+  labs(x = 'Time of Day',
+       y = 'Number of Trips') +
+  theme(axis.text.x = element_text(size=8, angle=90))
+```
+
+```{r}
+ggplot(data=citibike, aes(x=start.hour)) + geom_bar() +
+  labs(x = 'time of Day',
+       y = 'Number of Trips') +
+  theme(axis.text.x = element_text(size=8, angle=90)) +
+  facet_wrap(~usertype)
+```
+
+```{r}
+ggplot(data=citibike, aes(x=weekday)) + geom_bar() +
+  labs(x = 'Day of Week',
+       y = 'Number of Trips',
+       title = 'Number of Bike Trips by Day of Week')
+```
+
+```{r}
+citibike %>%
+  group_by(day) %>%
+  summarize(n=n(),
+            weekday = weekday[1]) %>%
+  group_by(weekday) %>%
+  summarize(n.m=mean(n)) %>%
+  ggplot(aes(x=weekday, y=n.m)) + geom_bar(stat='identity') +
+  labs(x = 'Day of Week',
+       y = 'Number of Trips',
+       title = 'Number of Bike Trips by Day of Week')
+```
+
+```{r}
+citibike %>%
+  group_by(day, usertype) %>%
+  summarize(n=n(),
+            weekday = weekday[1]) %>%
+  group_by(weekday, usertype) %>%
+  summarize(n.m=mean(n)) %>%
+  ggplot(aes(x=weekday, y=n.m)) + geom_bar(stat='identity') +
+  labs(x = 'Day of Week',
+       y = 'Number of Trips',
+       title = 'Number of Bike Trips by Day of Week') +
+  facet_wrap(~usertype)
+```
+
+```{r}
+citibike %>%
+  group_by(day, usertype, start.hour) %>%
+  summarize(n=n(),
+            weekday = weekday[1]) %>%
+  group_by(weekday, usertype, start.hour) %>%
+  summarize(n.m=mean(n)) %>%
+  ggplot(aes(x=start.hour, y=n.m, fill=weekday)) +
+  geom_bar(stat='identity') +
+  labs(x = 'Time of Day',
+       y = 'Number of Trips',
+       title = 'Number of Bike Trips by Time of Day and Weekday') +
+  facet_grid(weekday~usertype) +
+  theme(axis.text.x = element_text(size=8, angle=90),
+        legend.position='none')
+```
+
+```{r}
+citibike <- citibike %>%
+  mutate(tripduration.m = tripduration/60)
+```
+
+```{r}
+citibike %>%
+  filter(tripduration.m < 100) %>%
+  ggplot(aes(x=tripduration.m)) + geom_histogram() +
+  labs(x = 'Trip Duration (min.))',
+       y = 'Number of Trips')
+```
+
+```{r}
+citibike %>%
+  filter(tripduration.m < 100) %>%
+  ggplot(aes(x=tripduration.m)) +
+  geom_histogram() +
+  labs(x = 'Trip Duration (min.)',
+       y = 'Number of Trips') +
+  facet_wrap(~usertype)
+```
+
+```{r}
+citibike %>%
+  filter(tripduration.m < 100) %>%
+  ggplot(aes(x=tripduration.m, fill=usertype)) +
+  geom_density(alpha=0.2) +
+  labs(x = 'Trip Duration (min.)',
+       y = 'Number of Trips')
+```
+
+```{r}
+citibike %>%
+  filter(!`birth year`=='NA', gender %in% c(1, 2)) %>%
+  mutate(birth.year.f=cut(as.numeric(`birth year`),
+                          breaks = c(0, 1955, 1965, 1975, 1985, 1990, 2000),
+                          labels=c('<1955', '1955-1964', '1965-1974', '1975-1984', '1985-1989', '>=1990'))) %>%
+  group_by(birth.year.f, gender) %>%
+  summarize(med.trip.dur = median(tripduration.m)) %>%
+  ggplot(aes(x=birth.year.f, y=med.trip.dur, group=gender, color=gender)) +
+  geom_point() +
+  geom_line(linetype='dotted') +
+  labs(y = 'Trip Duration (min.)',
+       x = 'Age Group',
+       title = 'Median Trip Duration by Gender and Birth Year')
+```
+
+### Now trying with the taxi data example but with citi bike data
+
+https://bar.rady.ucsd.edu/Viz1.html
+
+```{r}
+cbike <- read.csv("201508-citibike-tripdata.csv", check.names=TRUE)
+```
+
+```{r}
+cur_year <- year(Sys.Date())
+cur_year
+```
+
+```{r}
+cbike <- cbike %>%
+  mutate(weekday = wday(mdy_hms(starttime), label=TRUE, abbr=TRUE),
+         hour.trip.start = factor(hour(mdy_hms(starttime))),
+         day = factor(mday(mdy_hms(starttime))),
+         tripduration.m = tripduration/60,
+         usertype = factor(usertype),
+         bikeid = factor(bikeid),
+         age = cur_year - birth.year,
+         start.station.id = factor(start.station.id),
+         end.station.id = factor(end.station.id),
+         gender.f = fct_recode(factor(gender),
+                                "Unknown"="0",
+                                "Male"="1",
+                                "Female"="2"))
+
+cbike
+```
+
+```{r}
+ggplot(data=cbike, aes(x=day)) + geom_bar()
+```
+
+```{r}
+cbike %>%
+  filter(usertype=='Subscriber') %>%
+  ggplot(aes(x=day)) + geom_bar()
+```
+
+```{r}
+cbike %>%
+  filter(usertype %in% c('Subscriber', 'Customer')) %>%
+  ggplot(aes(x=day, fill=usertype)) + geom_bar()
+```
+
+```{r}
+cbike %>%
+  filter(usertype %in% c('Subscriber', 'Customer')) %>%
+  ggplot(aes(x=day, fill=usertype)) + geom_bar(position='dodge')
+```
+
+```{r}
+cbike %>%
+  ggplot(aes(x=hour.trip.start)) + geom_bar()
+```
+
+```{r}
+cbike %>%
+  filter(usertype %in% c('Subscriber', 'Customer')) %>%
+  ggplot(aes(x=hour.trip.start, fill=usertype)) + geom_bar(position='dodge')
+```
+
+```{r}
+cbike %>%
+  ggplot(aes(x=weekday)) + geom_bar()
+```
+
+```{r}
+cbike %>%
+  group_by(day) %>%
+  summarize(weekday=weekday[1]) %>%
+  count(weekday)
+```
+
+```{r}
+cbike %>%
+  group_by(day) %>%
+  summarize(n = n(),
+            wday = weekday[1]) %>%
+  group_by(wday) %>%
+  summarize(n.trip.mean=mean(n)) %>%
+  ggplot(aes(x=wday, y=n.trip.mean)) + geom_bar(stat='identity')
+```
+
+```{r}
+cbike %>%
+  count(day) %>%
+  ggplot(aes(x=day, y=n)) + geom_point()
+```
+
+```{r}
+cbike %>%
+  count(day) %>%
+  ggplot(aes(x=day, y=n)) + geom_point() + geom_line(aes(group=1), linetype='dotted')
+```
+
+```{r}
+cbike %>%
+  count(hour.trip.start) %>%
+  ggplot(aes(x=hour.trip.start, y=n)) +
+  geom_point() +
+  geom_line(aes(group=1), linetype='dotted')
+```
+
+```{r}
+cbike %>%
+  filter(usertype %in% c('Subscriber', 'Customer')) %>%
+  count(usertype, hour.trip.start) %>%
+  ggplot(aes(x=hour.trip.start, y=n, color=usertype, group=usertype)) +
+  geom_point() +
+  geom_line(linetype='dotted')
+```
+
+```{r}
+cbike %>%
+  ggplot(aes(x=tripduration.m)) + geom_histogram()
+```
+
+```{r}
+cbike %>%
+  arrange(desc(tripduration.m)) %>%
+  select(starttime, stoptime, tripduration.m) %>%
+  slice(1:5)
+```
+
+```{r}
+# Percentage of rides above 1 hour
+sum(cbike$tripduration.m > 60)/nrow(cbike)
+```
+
+```{r}
+cbike %>%
+  ggplot(aes(x=tripduration.m)) + geom_histogram() + xlim(0, 60)
+```
+
+```{r}
+# median duration for each ay of the month
+cbike %>%
+  group_by(day) %>%
+  summarize(med.duration=median(tripduration.m)) %>%
+  ggplot(aes(x=day, y=med.duration)) +
+  geom_point() +
+  geom_line(aes(group=1), linetype='dotted')
+```
+
+```{r}
+cbike %>%
+  group_by(day) %>%
+  summarize(med.duration=median(tripduration.m),
+            weekday=weekday[1]) %>%
+  ggplot(aes(x=day, y=med.duration, grouop=1)) +
+  geom_point(aes(color=weekday), size=5) +
+  geom_line(aes(group=1), linetype='dotted') +
+  labs(x='Day of Month',
+       y='Median Trip Duration (Mins.)',
+       title='Median Trip Duration by Day of Month')
+```
+
+```{r}
+cbike %>%
+  group_by(hour.trip.start) %>%
+  summarize(med.duration=median(tripduration.m)) %>%
+  ggplot(aes(x=hour.trip.start, y=med.duration)) +
+  geom_point() +
+  geom_line(aes(group=1), linetype='dotted')
+```
+
+```{r}
+cbike %>%
+  group_by(weekday, hour.trip.start) %>%
+  summarize(med.duration=median(tripduration.m)) %>%
+  ggplot(aes(x=hour.trip.start, y=med.duration, group=weekday, color=weekday)) +
+  geom_point(size=3) +
+  geom_line(size=0.5) +
+  facet_wrap(~weekday, nrow=1) +
+  theme(legend.position='none') +
+  scale_x_discrete(breaks=c(0,3,6,9,12,15,18,21))
+```
+
+```{r}
+cbike %>%
+  filter(usertype %in% c('Subscriber', 'Customer')) %>%
+  group_by(weekday, hour.trip.start, usertype) %>%
+  summarize(med.duration=median(tripduration.m)) %>%
+  ggplot(aes(x=hour.trip.start, y=med.duration, group=weekday, color=weekday)) +
+  geom_point(size=3) +
+  geom_line(size=0.5) +
+  facet_grid(weekday~usertype) +
+  theme(legend.position='none') +
+  scale_x_discrete(breaks=c(0,3,6,9,12,15,18,21))
+```
+
+```{r}
+cbike %>%
+  filter(usertype %in% c('Subscriber', 'Customer')) %>%
+  group_by(weekday, hour.trip.start, usertype) %>%
+  summarize(med.duration=median(tripduration.m)) %>%
+  ggplot(aes(x=hour.trip.start, y=med.duration, group=usertype, 
+             color=usertype, linetype=usertype, shape=usertype)) +
+  geom_point(size=2) +
+  geom_line(size=0.5) +
+  facet_wrap(~weekday, nrow=1) +
+  labs(x='Time of Day',
+       y='Median Trip Duration') +
+  scale_x_discrete(breaks=c(0,6,12,18))
+```
+
+Trying to create graphs of data from this site:
+https://nycdatascience.com/blog/student-works/embrace-the-new-normal-citi-bike-jersey-city-and-hoboken-data-analysis/
+
+```{r}
+cbike
+```
+
+```{r}
+cbike %>%
+  filter(gender.f %in% c('Male', 'Female', 'Unknown')) %>%
+  ggplot(aes(x=weekday, fill=gender.f)) + geom_bar(position='dodge')
+```
+
+```{r}
+cbike %>%
+  filter(gender.f %in% c('Male', 'Female')) %>%
+  filter(age <= 100) %>%
+  ggplot(aes(x=weekday, y=age, fill=gender.f)) + 
+  geom_boxplot()
+```
+
+```{r}
+cbike
+```
+
+```{r}
+# https://stackoverflow.com/questions/8862105/count-unique-combinations-of-values
+res <- dplyr::count_(cbike, vars = c('start.station.id', 'end.station.id'))
+# Displaying count of unique station combinations
+res2 <- res[order(-res$n),]
+res2
+```
+
+```{r}
+# Unique count of start station IDs
+n_distinct(cbike$start.station.id)
+```
+
+```{r}
+# Unique count of end station IDs
+n_distinct(cbike$end.station.id)
+```
+
+
+2006	3436	
+63662	499	499	1308	
+16596	281	281	1278	
+38675	387	387	843	
+83471	3181	3181
+
+```{r}
+# Curious which station was 2006, it's Central Park and thus a likely tourist idea to checkout and return to the same location
+# Added filter to greater than 5 minutes, a bit arbitrary, but at least not checkout and then immediate return
+cbike %>%
+  filter(start.station.id == '2006') %>%
+  filter(tripduration.m > 5)
+```
+
+
+```{r}
+# requires Google API key
+#paris <- get_map(location = "paris")
+#str(paris)
+#ggmap(pares, extent = "normal")
+```
+
+```{r}
+#https://r-spatial.org/r/2018/10/25/ggplot2-sf-2.html
+theme_set(theme_bw())
+library("sf")
+library("rnaturalearth")
+library("rnaturalearthdata")
+
+world <- ne_countries(scale = "medium", returnclass = "sf")
+class(world)
+```
+
+```{r}
+(sites <- data.frame(longitude = c(-80.144005, -80.109), latitude = c(26.479005, 
+    26.83)))
+```
+
+```{r}
+ggplot(data = world) +
+    geom_sf() +
+    geom_point(data = cbike, aes(start.station.longitude, start.station.latitude), size = 1, 
+        shape = 23, fill = "darkred") +
+    coord_sf(xlim = c(-74.2, -73.8), ylim = c(40.6, 40.8), expand = FALSE)
+```
+
+Above, not that good ... ugh
+
+```{r}
+# Let's try Leaflet
+library(leaflet)
+```
+
+```{r}
+m <- leaflet() %>%
+  addTiles() %>%  # Add default OpenStreetMap map tiles
+  addMarkers(lng=-74, lat=40.72, popup="NYC")
+m  # Print the map
+```
+
+
+```{r}
+# Show first 20 rows from the `quakes` dataset
+leaflet(data = cbike[1:100,]) %>% 
+  addTiles() %>%
+  addMarkers(~start.station.longitude, ~start.station.latitude, popup = ~as.character(start.station.id))
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+~~~~~
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
