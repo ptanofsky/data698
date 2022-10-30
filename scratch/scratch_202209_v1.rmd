@@ -1,0 +1,328 @@
+---
+title: "Scratch with Sept 22 Data"
+author: "Philip Tanofsky"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+Scratch work using the September 2022 data, most recent as I'm working on this Oct. 30, 2022
+
+
+Note to self: JC prefixed files are Jersey City, and thus it's all New Jersey info, so omit that, just focus on NYC data (no prefix)
+
+```{r}
+# Required packages
+library(tidyverse)
+library(ggplot2)
+library(skimr)
+#library(tidyjson)
+#library(geosphere)
+library(lubridate)
+# library(ggmap)
+#library(forcats)
+#library(scales)
+```
+
+```{r}
+# Let's create some other colums of value
+# weekday
+# day of the month
+# trip duration in minutes
+# start hour
+citibike <- read.csv("data/202209-citibike-tripdata.csv", check.names=TRUE) %>%
+  mutate(day = factor(mday(ymd_hms(started_at))),
+         start.hour=factor(hour(ymd_hms(started_at))),
+         weekday = wday(ymd_hms(started_at),label=TRUE,abbr=TRUE),
+         trip.duration = as.numeric(difftime(ended_at,started_at,units="mins")),
+         member_casual = factor(member_casual))
+
+#citibike
+```
+
+For September 2022, there are 104, 247 rows
+
+Columns
+- ride_id: Unique identifier of the ride, probably not meaningful to me
+- rideable_type:
+
+```{r}
+skim(citibike)
+```
+
+```{r}
+citibike %>%
+  filter(is.na(end_lat))
+```
+
+It appears 3838 bike trips were abandoned as the end_lat, end_long, end_station_name, and end_station_id are empty.
+
+```{r}
+# Number of trips for each hour of the day
+ggplot(citibike, aes(x=start.hour)) +
+  geom_bar() +
+  labs(x = 'Time of Day',
+       y = 'Number of Trips') +
+  theme(axis.text.x = element_text(size=8, angle=90))
+
+```
+
+```{r}
+# Now let's check trips per hour by user type
+ggplot(citibike, aes(x=start.hour)) +
+  geom_bar() +
+  labs(x = 'Time of Day',
+       y = 'Number of Trips') +
+  theme(axis.text.x=element_text(size=8, angle=90)) +
+  facet_wrap(~member_casual)
+```
+
+Rush hour spikes for members, also a bit of a evening rush hour for casual, too
+
+```{r}
+# Trips by weekday
+ggplot(citibike, aes(x=weekday)) +
+  geom_bar() +
+  labs(x = 'Day of Week',
+       y = 'Number of Trips',
+       title = 'Number of Bike Trips by Day of Week')
+```
+
+Greater on Thu and Friday, but is that due to extra days of the month ... I bet it is.
+
+```{r}
+citibike %>%
+  group_by(day) %>%
+  summarize(n=n(),
+            weekday = weekday[1]) %>%
+  group_by(weekday) %>%
+  summarize(n.m=mean(n)) %>%
+  ggplot(aes(x=weekday, y=n.m)) + geom_bar(stat='identity') +
+  labs(x = 'Day of Week',
+       y = 'Number of Trips',
+       title = 'Number of Bike Trips by Day of Week')
+```
+
+Yep, that lowers the Thu and Fri count. And now it appears Wed is the highest volume day
+
+```{r}
+# Let's check the volume of day by the user type
+citibike %>%
+  group_by(day, member_casual) %>%
+  summarize(n=n(),
+            weekday = weekday[1]) %>%
+  group_by(weekday, member_casual) %>%
+  summarize(n.m=mean(n)) %>%
+  ggplot(aes(x=weekday, y=n.m)) + geom_bar(stat='identity') +
+  labs(x = 'Day of Week',
+       y = 'Number of Trips',
+       title = 'Number of Bike Trips by Day of Week') +
+  facet_wrap(~member_casual)
+```
+
+Casual is more likely tourists and recreation use, while member are more likely to use during weekdays, and thus like for work
+
+```{r}
+# Trip by weekday by segment by time of day
+citibike %>%
+  group_by(day, member_casual, start.hour) %>%
+  summarize(n=n(),
+            weekday=weekday[1]) %>%
+  group_by(weekday, member_casual, start.hour) %>%
+  summarize(n.m=mean(n)) %>%
+  ggplot(aes(x=start.hour, y=n.m, fill=weekday)) +
+  geom_bar(stat='identity') +
+  labs(x='Time of Day',
+       y='Number of Trips',
+       title='Number of Bike Trips by Time of Day and Weekday') +
+  facet_grid(weekday~member_casual) +
+  theme(axis.text.x = element_text(size=8, angle=90),
+        legend.position = 'none')
+```
+
+```{r}
+# Trip durations
+citibike %>%
+  filter(trip.duration < 100) %>%
+  ggplot(aes(x=trip.duration)) +
+  geom_histogram() +
+  labs(x = 'Trip Duration (min.)',
+       y = 'Number of Trips')
+
+```
+
+```{r}
+# Segment durations by user type
+citibike %>%
+  filter(trip.duration < 100) %>%
+  ggplot(aes(x=trip.duration)) +
+  geom_histogram() +
+  labs(x = 'Trip Duration (min.)',
+       y = 'Number of Trips') +
+  facet_wrap(~member_casual)
+```
+
+```{r}
+# Same as above with density plot instead of histogram
+citibike %>%
+  filter(trip.duration < 100) %>%
+  ggplot(aes(x=trip.duration, fill=member_casual)) +
+  geom_density(alpha=0.2) +
+  labs(x = 'Trip Duration (min.)',
+       y = 'Number of Trips')
+  
+```
+
+Casual do tend to have longer trips
+
+```{r}
+# Ok, now I want to understand all the stations
+n_distinct(citibike$start_station_id)
+```
+
+1618 start station IDs in NYC
+
+```{r}
+n_distinct(citibike$end_station_id)
+```
+
+And 1658 end station IDs in NYC
+
+```{r}
+# Create table of start to end station IDS
+#library(plyr)
+#counts <- ddply(citibike, .(citibike$start_station_id, citibike$end_station_id), nrow)
+#names(counts) <- c("Start ID", "End ID", "Freq")
+
+
+stations_cols <- citibike %>%
+  filter(trip.duration > 4) %>% # Only consider trips of a minimum 5 minutes
+  select(start_station_id, end_station_id)
+stations_table <- as.data.frame((table(stations_cols)))
+
+stations_table <- stations_table %>%
+  filter(Freq > 0)
+
+stations_table_order <- stations_table[order(-stations_table$Freq),]
+
+stations_table_order
+```
+
+For all valid combinations of start to end, there are 472920 combinations
+By removing trips of <= 4, there's a total of 471130 combinations
+
+
+```{r}
+stations_table_dif <- stations_table_order %>%
+  filter(as.character(start_station_id) != as.character(end_station_id))
+
+nrow(stations_table_dif)
+```
+
+469531 in which the start and end are NOT the same
+
+```{r}
+head(stations_table_dif)
+```
+
+```{r}
+stations_table_dif1 <- stations_table_dif
+stations_table_dif2 <- stations_table_dif
+```
+
+
+merge(df1, df2, by.x='init', by.y='V2')
+merge(df1, df2, by.x=c('chr','init'), by.y=c('V1',V2')[, c(2,1,4)] 
+```{r}
+res <- 
+merge(stations_table_dif1, stations_table_dif1, by.x=c('start_station_id','end_station_id'), by.y=c('end_station_id','start_station_id'))
+```
+
+```{r}
+res$count_dif <- res$Freq.x - res$Freq.y
+res <- res[order(-res$count_dif),]
+res
+```
+
+So Freq.x is the count of trips from start to end
+-- Freq.y is the count of trips from end to start
+count_dif is Freq.x - Freq.y which means that positive number indicates return trips are less
+and negative number indicates return trips are greater
+
+```{r}
+head(res)
+```
+
+```{r}
+tail(res)
+```
+But this implies I have every combination twice, so just remove the negative numbers ... TODO: figure this out, there is duplicates in data, but need to understand how to understand the movement
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+~~~~~
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
