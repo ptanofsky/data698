@@ -1,0 +1,224 @@
+---
+title: "Scratch Time Series Graphs"
+author: "Philip Tanofsky"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# ATTEMPT AT TIME SERIES GRAPHS USING FFP3 LIBRARY
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(fpp3)
+```
+
+```{r}
+# Let's create some other columns of value
+# weekday
+# day of the month
+# trip duration in minutes
+# start hour
+citibike <- read.csv("data/202209-citibike-tripdata.csv", check.names=TRUE) %>%
+  mutate(day = factor(mday(ymd_hms(started_at))),
+         start.hour=factor(hour(ymd_hms(started_at))),
+         weekday = wday(ymd_hms(started_at),label=TRUE,abbr=TRUE),
+         trip.duration = as.numeric(difftime(ended_at,started_at,units="mins")),
+         member_casual = factor(member_casual))
+
+#citibike
+```
+
+Columns
+- ride_id: Unique identifier of the ride, probably not meaningful to me
+- rideable_type:
+
+```{r}
+nrow(citibike)
+```
+
+Checks out, that is the correct number
+
+```{r}
+head(citibike)
+```
+
+```{r}
+citibike_ts <- citibike %>%
+  mutate(start.ts = as_datetime(started_at)) %>%
+  as_tsibble(index=start.ts, key = ride_id)
+```
+
+```{r}
+citibike_ts[1:20,]
+```
+Hmm, I can't plot the data in this instance format, I need the info to follow a specific pattern interval before charting, so let's group by day and then chart that
+
+```{r}
+citibike_by_day <- citibike %>%
+  mutate(day=as_date(started_at)) %>%
+  group_by(day, member_casual) %>%
+  summarize(count=n())
+
+citibike_by_day
+```
+
+
+citibike %>%
+  group_by(day, member_casual) %>%
+  summarize(n=n(),
+            weekday = weekday[1]) %>%
+  group_by(weekday, member_casual) %>%
+  summarize(n.m=mean(n)) %>%
+  ggplot(aes(x=weekday, y=n.m)) + geom_bar(stat='identity') +
+  labs(x = 'Day of Week',
+       y = 'Number of Trips',
+       title = 'Number of Bike Trips by Day of Week') +
+  facet_wrap(~member_casual)
+
+```{r}
+citibike_by_day_ts <- citibike_by_day %>%
+  as_tsibble(index=day, key=c(member_casual))
+
+citibike_by_day_ts
+```
+
+```{r}
+autoplot(citibike_by_day_ts, count) +
+  labs(title = "Ride Trips by Day",
+       subtitle = "Citi Bike NYC",
+       y = "Ride Trips Counts")
+```
+
+```{r}
+# Let's attempt hourly
+# First convert started_at into a timestamp format
+citibike$started_at <- as_datetime(as.character(citibike$started_at))
+
+citibike
+```
+citibike_by_day
+
+
+
+
+pedestrian %>%
+  group_by_key() %>%
+  index_by(Date_Time4 = ~ lubridate::floor_date(., "4 hour")) %>%
+  summarise(Total_Count = sum(Count))
+
+
+  
+  citibike_by_day <- citibike %>%
+  mutate(day=as_date(started_at)) %>%
+  group_by(day, member_casual) %>%
+  summarize(count=n())
+
+citibike_by_day
+
+```{r}
+citibike_by_hour <- citibike %>%
+  mutate(hour=lubridate::floor_date(started_at, "1 hour")) %>%
+  group_by(hour, member_casual) %>%
+  summarize(cnt=n())
+
+citibike_by_hour
+```
+
+```{r}
+citibike_by_hour_ts <- citibike_by_hour %>%
+  as_tsibble(index=hour, key=c(member_casual))
+
+citibike_by_hour_ts
+```
+
+```{r}
+autoplot(citibike_by_hour_ts, cnt) +
+  labs(title = "Ride Trips by Hour - Sept. 2022",
+       subtitle = "Citi Bike NYC",
+       y = "Ride Trips Counts")
+```
+
+Above is a good look at the time series display of trip counts per hour for the two user types
+
+```{r}
+citibike_by_hour_ts %>%
+  gg_season(cnt, period = "week") +
+  labs(y = "Ride Trips",
+       title = "Seasonal plot: Weekly Trip Counts for Sept. 2022")
+```
+
+Rained all day on Tuesday, Sept 6 2022
+
+```{r}
+citibike_by_hour_ts %>%
+  #filter(member_casual=='member') %>%
+  gg_subseries(cnt, period = 'day') +
+  labs(y = "Ride Trips",
+       title = "Seasonal plot: Weekly Trip Counts for Sept. 2022")
+```
+
+Oh, this represents by hour across each day in which each section represents the full month. Still need to figure this out a bit.
+
+```{r}
+citibike_by_hour_ts %>%
+  #filter(member_casual=='member') %>%
+  gg_subseries(cnt, period = 'hour') +
+  labs(y = "Ride Trips",
+       title = "Seasonal plot: Weekly Trip Counts for Sept. 2022")
+```
+
+```{r}
+citibike_by_hour_ts %>%
+  ggplot(aes(x = hour, y = cnt)) +
+  geom_point() +
+  labs(x = "Temperature (degrees Celsius)",
+       y = "Electricity demand (GW)")
+```
+Above not too valuable given I don't have a secondary value such as temperature, if I could get temperature or rainfall per hour, then perhaps there would be a linear-like relationship
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+~~~~~
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```

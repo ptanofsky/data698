@@ -1,0 +1,246 @@
+---
+title: "Matrix of Start Stop by 15 minute intervals"
+author: "Philip Tanofsky"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# GOAL IS TO CREATE A MATRIX OF THE STARTS/ENDS FOR 15 MINUTE INTERVALS FOR EACH STATION
+
+```{r}
+# Required packages
+library(tidyverse)
+#library(ggplot2)
+#library(skimr)
+#library(tidyjson)
+#library(geosphere)
+library(lubridate)
+# library(ggmap)
+#library(forcats)
+#library(scales)
+```
+
+```{r}
+# Let's create some other columns of value
+# weekday
+# day of the month
+# trip duration in minutes
+# start hour
+citibike <- read.csv("data/202209-citibike-tripdata.csv", check.names=TRUE)
+
+#citibike
+```
+
+Columns
+- ride_id: Unique identifier of the ride, probably not meaningful to me
+- rideable_type:
+
+```{r}
+nrow(citibike)
+```
+
+ %>%
+  mutate(day = factor(mday(ymd_hms(started_at))),
+         start.hour=factor(hour(ymd_hms(started_at))),
+         weekday = wday(ymd_hms(started_at),label=TRUE,abbr=TRUE),
+         trip.duration = as.numeric(difftime(ended_at,started_at,units="mins")),
+         member_casual = factor(member_casual))
+
+```{r}
+citibike
+```
+
+```{r}
+# Ok, need to convert start time to actual datetime format
+citibike$started_at <- as_datetime(as.character(citibike$started_at))
+citibike$ended_at <- as_datetime(as.character(citibike$ended_at))
+citibike$end_station_name[citibike$end_station_name == ''] <- "Abandoned"
+citibike$end_station_id[citibike$end_station_id  == ''] <- "ABAN"
+
+citibike
+```
+
+```{r}
+# And now for grouping by 15 minutes
+
+citibike_by_start.interval <- citibike %>%
+  mutate(start.interval=lubridate::floor_date(started_at, "15 min")) %>%
+  group_by(start_station_id, start.interval) %>%
+  summarize(start.count=n())
+
+citibike_by_start.interval
+```
+
+```{r}
+citibike_by_end.interval <- citibike %>%
+  mutate(end.interval=lubridate::floor_date(started_at, "15 min")) %>%
+  group_by(end_station_id, end.interval) %>%
+  summarize(count=n())
+
+citibike_by_end.interval
+```
+
+```{r}
+# Now I Need to merge by station_id and time interval
+
+citibike_by_interval <- 
+  merge(citibike_by_start.interval, 
+        citibike_by_end.interval, 
+        by.x=c('start_station_id','start.interval'), 
+        by.y=c('end_station_id','end.interval'), all = TRUE)
+```
+
+
+
+```{r}
+citibike_by_interval[is.na(citibike_by_interval)] <- 0
+citibike_by_interval
+```
+```{r}
+# Rename columns
+colnames(citibike_by_interval)[1] <- "station_id"
+colnames(citibike_by_interval)[2] <- "interval_start.time"
+colnames(citibike_by_interval)[3] <- "depart.count"
+colnames(citibike_by_interval)[4] <- "arrive.count"
+
+citibike_by_interval
+```
+
+```{r}
+# Calculate surplus
+citibike_by_interval$surplus <- citibike_by_interval$arrive.count - citibike_by_interval$depart.count
+
+citibike_by_interval
+```
+
+```{r}
+citibike_by_interval_surplus <- citibike_by_interval %>%
+  select(station_id, interval_start.time, surplus)
+
+citibike_by_interval_surplus
+```
+
+```{r}
+
+```
+
+```{r}
+mydateseq<-seq(as.POSIXct("2022-09-01"), by="15 min", length.out = 2880)  
+
+# Output the data sequence to confirm the result are 15 minute intervals which start on the hour
+mydateseq
+```
+
+```{r}
+citibike_by_interval_surplus_wide <- citibike_by_interval_surplus %>%
+  pivot_wider(names_from = station_id, values_from = surplus)
+
+citibike_by_interval_surplus_wide[is.na(citibike_by_interval_surplus_wide)] <- 0
+
+
+# For ordering
+citibike_by_interval_surplus_wide <- citibike_by_interval_surplus_wide[order(citibike_by_interval_surplus_wide$interval_start.time),]
+citibike_by_interval_surplus_wide
+```
+# Nice the above matrix is by time and then for all the columns are stations with the plus/minus for each 15 minute interval
+
+# Next is to count the running total
+
+```{r}
+citibike_by_interval_surplus_wide
+```
+
+```{r}
+citibike_by_interval_surplus_wide_cs <- cumsum(citibike_by_interval_surplus_wide[2:1659])
+citibike_by_interval_surplus_wide_cs
+```
+
+```{r}
+time_index <- citibike_by_interval_surplus_wide$interval_start.time
+time_index
+```
+
+```{r}
+citibike_by_interval_surplus_wide
+```
+```{r}
+# Write the above to CSV
+#write.csv(citibike_by_interval_surplus_wide, file = 'stations_sept22_interval_surplus.csv')
+```
+
+```{r}
+
+citibike_by_interval_surplus_wide_cs <- cbind(time_index, citibike_by_interval_surplus_wide_cs)
+citibike_by_interval_surplus_wide_cs
+```
+
+Alright, so `citibike_by_interval_surplus_wide_cs` is the running total of eash station
+
+```{r}
+tail(citibike_by_interval_surplus_wide_cs)
+```
+# So many of the stations are negative, which can't be possible. Zero is absolutely the lowest number of bikes
+
+```{r}
+ff = function(x)
+{
+    cs = cumsum(x)
+    if (cs < 0) {
+      cs = 0
+    } else if (cs > 20) {
+      cs = 20
+    }
+}
+ff(citibike_by_interval_surplus_wide[2])
+```
+
+```{r}
+cumsum.bounded <- function(x, lower.bound = 0, upper.bound = 500) {
+    bsum <- function(x, y) min(upper.bound, max(lower.bound, x+y))
+    if (length(x) > 1) Reduce(bsum, x, acc = TRUE) else x
+}
+```
+
+```{r}
+cumsum.bounded(citibike_by_interval_surplus_wide[2:1659], 0, 20)
+```
+
+```{r}
+
+```
+
+```{r}
+library(dm)
+```
+
+```{r}
+cumsum_bounded(citibike_by_interval_surplus_wide[2:1659], 0, 20)
+```
+
+Unfortunately I wasn't able to get the cumsum bounded ... yet, need to check the .cpp suggestion
+
+https://stackoverflow.com/questions/21262424/bounded-cumulative-sum
+
+https://stat.ethz.ch/pipermail/r-help/2010-November/261244.html
+
+~~~~~
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```

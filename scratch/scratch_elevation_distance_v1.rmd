@@ -1,0 +1,117 @@
+---
+title: "Elevation and Distance v1"
+author: "Philip Tanofsky"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+Scratch work to get the elevation for each station and distance between two stations
+
+```{r}
+# Required packages
+library(tidyverse)
+#library(ggplot2)
+#library(skimr)
+#library(tidyjson)
+#library(geosphere)
+#library(lubridate)
+# library(ggmap)
+#library(forcats)
+#library(scales)
+library(elevatr)
+library(jsonlite)
+library(rgdal)
+```
+
+```{r}
+#Station_Information.json
+# Read in Citi bike Station information and only use the 'stations' object of the JSON
+citibike_station_raw <- fromJSON("Station_Information.json")
+citibike_station_info <- citibike_station_raw$data$stations
+
+# Only keep needed columns
+citibike_station_info <- citibike_station_info %>%
+  select("station_type", "short_name", "has_kiosk", "region_id", "name", "lat", "station_id", "external_id", "capacity", "lon", "electric_bike_surcharge_waiver", "legacy_id")
+
+# Output to confirm data appears reasonable
+(citibike_station_info)
+```
+
+
+```{r}
+# Reordering columns to move lon and lat to first two columns, also dropped a few columns
+col_order <- c('lon', 'lat', 'short_name', 'region_id', 'name', 'station_id', 'external_id', 'capacity')
+citibike_station_info <- citibike_station_info[, col_order]
+citibike_station_info
+```
+
+```{r}
+# From: https://cran.r-project.org/web/packages/elevatr/vignettes/introduction_to_elevatr.html
+prj_dd <- "EPSG:4326"
+
+df_elev_epqs <- get_elev_point(citibike_station_info, prj = prj_dd, src = "epqs")
+```
+
+```{r}
+(df_elev_epqs)
+```
+
+```{r}
+write.csv(df_elev_epqs, file = 'stations_with_elevation.csv')
+```
+
+Do I need the distance between the stations? I don't think I really do besides for some EDA charts, but the availability is based on movement of bikes, via trip or via rebalancing, but the distance of the trips themselves wouldn't play a factor.
+
+If I did want to get the distance, it seems https://openrouteservice.org/services/ and the API for time-distance matrix which is free with restrictions would be the best option to get info for free. otherwise, it seems the Google API would cost me over $1000, but again, I'm not sure what I'd do with that info.
+
+Matrix API: max is 2500 combinations per request
+Basic level API restrictions: Matrix* (500 / 40) 500 per day, 40 per minute
+
+
+PERHAPS THE VALUE IN ELEVATION IS THE OVERALL NET SURPLUS IN A MONTH, IS THERE A STATION WITH A POSITIVE VALUE WHICH HAS A HIGHER ELEVATION?
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+~~~~~
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```

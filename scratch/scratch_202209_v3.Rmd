@@ -7,10 +7,19 @@ output: html_document
 
 Scratch work using the September 2022 data, most recent as I'm working on this Oct. 30, 2022
 
+Update: v2, started working at 8:30p on Friday, Nov. 11, 2022
 
-Note to self: JC prefixed files are Jersey City, and thus it's all New Jersey info, so omit that, just focus on NYC data (no prefix)
+Updated: v3, started working at 1:44P on Saturday, Nov. 12, 2022
 
-```{r}
+
+11/12/2022
+
+Data Collection and Analysis
+
+
+
+
+```{r warning=FALSE}
 # Required packages
 library(tidyverse)
 library(ggplot2)
@@ -23,12 +32,12 @@ library(lubridate)
 #library(scales)
 ```
 
+
+Analysis starting with the Citibike bike trips for September 2022.
+
 ```{r}
 # Let's create some other columns of value
-# weekday
-# day of the month
-# trip duration in minutes
-# start hour
+# weekday, day of the month, trip duration in minutes, start hour
 citibike <- read.csv("data/202209-citibike-tripdata.csv", check.names=TRUE) %>%
   mutate(day = factor(mday(ymd_hms(started_at))),
          start.hour=factor(hour(ymd_hms(started_at))),
@@ -40,18 +49,76 @@ citibike <- read.csv("data/202209-citibike-tripdata.csv", check.names=TRUE) %>%
 ```
 
 Columns
-- ride_id: Unique identifier of the ride, probably not meaningful to me
-- rideable_type:
+- ride_id: Unique identifier of the ride
+
+- rideable_type: class vs electric bike
+
+- started_at: Timestamp of trip start
+
+- ended_at: Timestamp of trip end
+
+- start_station_name: Name of station of trip departure
+
+- start_station_id: Unique identifier of station of trip departure
+
+- end_station_name: Name of station of trip arrival
+
+- end_station_id: Unique identifier of station of trip arrival
+
+- start_lat: Latitude of departure location
+
+- start_lng: Longitude of departure location
+
+- end_lat: Latitude of arrival location
+
+- end_lng: Longitude of arrival location
+
+- member_casual: Member or casual user type
+
+- day: Day of the month
+
+- start.hour: Hour of the trip departure
+
+- weekday: Day of the week for the trip
+
+- trip.duration: Duration of bike trip in minutes.
 
 ```{r}
-nrow(citibike)
+citibike
 ```
 
-September contains 3,507,123 rows, so 3.5 million trips
+September contains 3,507,123 rows, so 3.5 million trips during the month of September 2022.
 
 ```{r}
 skim(citibike)
 ```
+
+3507123 ride_id's which is one for each bike trip
+
+- rideable_type: classic_bike which is pedal, electric_bike which is electric and docked_bike which is ???
+
+I w
+
+
+From: https://ride.citibikenyc.com/system-data
+
+This data has been processed to remove trips that are taken by staff as they service and inspect the system, trips that are taken to/from any of our “test” stations (which we were using more in June and July 2013), and any trips that were below 60 seconds in length (potentially false starts or users trying to re-dock a bike to ensure it's secure).
+
+```{r}
+citibike %>%
+  group_by(rideable_type) %>%
+  summarize(n=n())
+```
+
+Docked_bike is 28432 which is almost 1000 per day, does this represent the rebalancing?
+
+```{r}
+citibike %>%
+  filter(rideable_type=='docked_bike') %>%
+  group_by(member_casual) %>%
+  summarize(n=n())
+```
+All 28432 are casual for the 'docked_bike'
 
 ```{r}
 citibike %>%
@@ -184,6 +251,55 @@ citibike %>%
 ```
 
 Casual do tend to have longer trips
+
+```{r}
+citibike %>%
+  group_by(start.hour) %>%
+  summarize(med.duration=median(trip.duration)) %>%
+  ggplot(aes(x=start.hour, y=med.duration)) +
+  geom_point() +
+  geom_line(aes(group=1), linetype='dotted')
+```
+
+```{r}
+citibike %>%
+  group_by(weekday, start.hour) %>%
+  summarize(med.duration=median(trip.duration)) %>%
+  ggplot(aes(x=start.hour, y=med.duration, group=weekday, color=weekday)) +
+  geom_point(size=3) +
+  geom_line(size=0.5) +
+  facet_wrap(~weekday, nrow=1) +
+  theme(legend.position='none') +
+  scale_x_discrete(breaks=c(0,3,6,9,12,15,18,21))
+```
+
+```{r}
+citibike %>%
+  filter(member_casual %in% c('member', 'casual')) %>%
+  group_by(weekday, start.hour, member_casual) %>%
+  summarize(med.duration=median(trip.duration)) %>%
+  ggplot(aes(x=start.hour, y=med.duration, group=weekday, color=weekday)) +
+  geom_point(size=3) +
+  geom_line(size=0.5) +
+  facet_grid(weekday~member_casual) +
+  theme(legend.position='none') +
+  scale_x_discrete(breaks=c(0,3,6,9,12,15,18,21))
+```
+
+```{r}
+citibike %>%
+  filter(member_casual %in% c('member', 'casual')) %>%
+  group_by(weekday, start.hour, member_casual) %>%
+  summarize(med.duration=median(trip.duration)) %>%
+  ggplot(aes(x=start.hour, y=med.duration, group=member_casual, 
+             color=member_casual, linetype=member_casual, shape=member_casual)) +
+  geom_point(size=2) +
+  geom_line(size=0.5) +
+  facet_wrap(~weekday, nrow=1) +
+  labs(x='Time of Day',
+       y='Median Trip Duration') +
+  scale_x_discrete(breaks=c(0,6,12,18))
+```
 
 ```{r}
 # Ok, now I want to understand all the stations
@@ -413,9 +529,6 @@ station_surplus_count_coords <- merge(x = station_surplus_count, y = citibike, b
 station_surplus_count_coords
 ```
 
-```{r}
-
-```
 
 ```{r}
 # Count of occurrences for each value in start_station_id
@@ -500,9 +613,6 @@ station.count.by.15min
 ```{r}
 
 ```
-
-# NEXT: Plot the stations
-Once I have the above info, then I can see which stations have greater volume based on location
 
 ```{r}
 

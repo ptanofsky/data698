@@ -1,0 +1,144 @@
+---
+title: "Scratch Station Info"
+author: "Philip Tanofsky"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Focus on the station info
+
+```{r}
+# Required packages
+library(tidyverse)
+library(ggplot2)
+library(skimr)
+#library(tidyjson)
+#library(geosphere)
+library(lubridate)
+# library(ggmap)
+#library(forcats)
+#library(scales)
+library(jsonlite)
+```
+
+```{r}
+# Read in trip data for September 2022
+# Create variables for day of the month, start hour, weekday, trip duration, member_casual
+citibike <- read.csv("data/202209-citibike-tripdata.csv", check.names=TRUE) %>%
+  mutate(day = factor(mday(ymd_hms(started_at))),
+         start.hour=factor(hour(ymd_hms(started_at))),
+         weekday = wday(ymd_hms(started_at),label=TRUE,abbr=TRUE),
+         trip.duration = as.numeric(difftime(ended_at,started_at,units="mins")),
+         member_casual = factor(member_casual))
+```
+
+```{r}
+#Station_Information.json
+# Read in Citi bike Station information and only use the 'stations' object of the JSON
+citibike_station_raw <- fromJSON("Station_Information.json")
+citibike_station_info <- citibike_station_raw$data$stations
+
+# Only keep needed columns
+citibike_station_info <- citibike_station_info %>%
+  select("station_type", "short_name", "has_kiosk", "region_id", "name", "lat", "station_id", "external_id", "capacity", "lon", "electric_bike_surcharge_waiver", "legacy_id")
+
+# Output to confirm data appears reasonable
+(citibike_station_info)
+```
+
+According to this file, there are 1708 stations
+
+```{r}
+n_distinct(citibike_station_info$name)
+```
+
+1708 unique names
+
+```{r}
+n_distinct(citibike_station_info$region_id)
+```
+
+3 region ids
+According to specifications, a very generic identifier: https://github.com/MobilityData/gbfs/blob/master/gbfs.md#system_regionsjson
+
+```{r}
+citibike_station_info %>%
+  filter(region_id == 71)
+```
+
+1627 stations in the NYC district (region_id==71)
+
+```{r}
+unique(citibike_station_info$region_id)
+```
+
+
+{
+  "data": {
+    "regions": [
+      {
+        "name": "JC District",
+        "region_id": "70"
+      },
+      {
+        "name": "NYC District",
+        "region_id": "71"
+      },
+      {
+        "name": "8D",
+        "region_id": "158"
+      },
+      {
+        "name": "Bronx",
+        "region_id": "185"
+      },
+      {
+        "name": "IC HQ",
+        "region_id": "189"
+      },
+      {
+        "name": "testzone",
+        "region_id": "190"
+      },
+      {
+        "name": "Hoboken District",
+        "region_id": "311"
+      }
+    ]
+  },
+  "last_updated": 1667169676,
+  "ttl": 5
+}
+
+Above confirms the 'NYC District' is region_id 71
+
+```{r}
+# Considering Time Series data
+# This is directly from https://otexts.com/fpp3/appendix-using-r.html
+# Load required packages
+library(fpp3)
+
+```
+
+
+~~~~~
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```

@@ -1,0 +1,218 @@
+---
+title: "Scratch Leaflet for Shiny v1"
+author: "Philip Tanofsky"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+# Required packages
+library(tidyverse)
+#library(ggplot2)
+#library(skimr)
+#library(tidyjson)
+#library(geosphere)
+library(lubridate)
+# library(ggmap)
+#library(forcats)
+#library(scales)
+library(jsonlite)
+library(leaflet)
+library(rgdal)
+library(RColorBrewer)
+```
+
+
+```{r}
+#Station_Information.json
+# Read in Citi bike Station information and only use the 'stations' object of the JSON
+citibike_station_raw <- jsonlite::fromJSON("Station_Information.json")
+citibike_station_info <- citibike_station_raw$data$stations
+
+# Only keep needed columns
+citibike_station_info <- citibike_station_info %>%
+  select("station_type", "short_name", "has_kiosk", "region_id", "name", "lat", "station_id", "external_id", "capacity", "lon", "electric_bike_surcharge_waiver", "legacy_id")
+
+# Output to confirm data appears reasonable
+(citibike_station_info)
+```
+
+```{r}
+citibike_station_info[is.na(citibike_station_info$lat),]
+```
+
+```{r}
+station_surplus_data <- read.csv('stations_sept22_interval_surplus.csv', row.names = 1, header= TRUE)
+station_surplus_data
+```
+
+```{r}
+col_name <- as.data.frame(colnames(station_surplus_data))
+colnames(col_name)[1] <- "short_name"
+
+# Remove the 'X'
+col_name <- gsub("X", "", col_name$short_name)
+
+# Reset the column names
+colnames(station_surplus_data) <- col_name
+
+# Output to confirm ... yes, it worked
+station_surplus_data
+```
+
+```{r}
+# Pivot longer
+
+station_surplus_data_long <- station_surplus_data %>%
+  pivot_longer(!interval_start.time, names_to = "short_name", values_to = "surplus")
+
+station_surplus_data_long
+```
+```{r}
+station_surplus_data_long$interval_start.time <- as.POSIXct(station_surplus_data_long$interval_start.time)
+station_surplus_data_long
+```
+
+2880 * 1658 = 4775040 ... so that worked
+
+
+```{r}
+# Select a date
+selectedData <- station_surplus_data_long[station_surplus_data_long$interval_start.time == "2022-09-01 12:00:00",]
+
+selectedData
+```
+Ok, the above appears to have worked, I'm able to select on an interval and get just those rows
+
+
+```{r}
+col_name <- col_name[-1]
+```
+
+```{r}
+col_name <- as.data.frame(col_name)
+col_name
+```
+
+
+```{r}
+citibike_nyc_station_info <- merge(x = citibike_station_info, y = col_name, by.x = 'short_name', by.y='col_name', all.y = TRUE)
+
+citibike_nyc_station_info[is.na(citibike_nyc_station_info),]
+```
+Ok, now I'm down to my 1658 stations ... phew
+
+
+```{r}
+citibike_nyc_station_info$Surplus <- selectedData$surplus[match(citibike_nyc_station_info$short_name, selectedData$short_name)]
+
+citibike_nyc_station_info
+```
+
+
+```{r}
+# Create label texts
+citibike_nyc_station_info$LabelText <- paste0(
+  "<b>Station:</b> ", citibike_nyc_station_info$short_name, "<br>",
+  "<b>Surplus:</b> ", format(citibike_nyc_station_info$Surplus, nsmall=0, big.mark = ",")
+)
+```
+
+```{r}
+# For COVID DATA - PROBABLY DELETE!!
+# Define color paletter for chart legend
+paletteBins <- c(0, 50000, 100000, 250000, 500000, 1000000, 2500000, 5000000, 10000000)
+colorPalette <- colorBin(palette = "YlOrBr", domain = covidData$Cumulative_cases, na.color = "transparent", bins = paletteBins)
+```
+
+
+```{r}
+# Create map with circle markers
+leaflet(citibike_nyc_station_info) %>%
+  addTiles() %>%
+#  setView(lat = 0, lng = 0, zoom=2) %>%
+  
+  addCircleMarkers(lng = ~lon,
+                   lat = ~lat,
+                   weight = 1,
+                   opacity = 1,
+                   radius=2,
+                   color = ~ifelse(Surplus >= 1, 'blue', 
+                      ifelse(Surplus == 0, 'green', 'red')),
+                   label = ~lapply(LabelText, htmltools::HTML))
+#%>%
+  
+#  leaflet::addLegend(pal=colorPalette, values=covidData$Cumulative_cases, opacity=0.9, title="Surplus by Station", position="bottomleft")
+```
+
+```{r}
+missing_data <- citibike_nyc_station_info[is.na(citibike_nyc_station_info$lat),]
+missing_data
+```
+
+# Need to figure out the above!!! TODO
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+~~~~~
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```

@@ -1,0 +1,178 @@
+---
+title: "Citibike Station Availability"
+author: "Philip Tanofsky"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+At 8:30p 11/11/22, goal is to 1) read in one of the station availability API responses from Chron script and 2) determine the borough and neighborhood for each station based on lat/long
+
+
+```{r}
+# Required packages
+library(tidyverse)
+library(ggplot2)
+library(skimr)
+#library(tidyjson)
+#library(geosphere)
+library(lubridate)
+# library(ggmap)
+#library(forcats)
+#library(scales)
+library(geojsonR)
+#library(rjson)
+library(jsonlite)
+#library(sp)
+
+library(sp)
+library(rgdal)
+library(maps)
+library(dplyr)
+```
+
+GeoJson file: nyc-neighborhoods_gis.geojson
+
+Station API response in JSON: cb_station_2022-10-30_21_16_00.json
+
+
+```{r}
+
+# https://data.cityofnewyork.us/City-Government/2010-Neighborhood-Tabulation-Areas-NTAs-/cpf4-rkhq
+#nyc_hoods_js = FROM_GeoJson("data/nyc_nta_2010.geojson")
+nyc_hoods_js = readOGR("data/nyc_nta_2010.geojson")
+
+nyc_hoods_js
+```
+
+```{r}
+cb_station_json <- jsonlite::read_json('data/cb_station_2022-10-30_21_16_00.json', simplifyVector = TRUE)
+
+stations_avail <- cb_station_json$data$stations
+```
+
+```{r}
+stations_avail
+```
+
+```{r}
+#Station_Information.json
+# Read in Citi bike Station information and only use the 'stations' object of the JSON
+citibike_station_raw <- jsonlite::fromJSON("Station_Information.json")
+citibike_station_info <- citibike_station_raw$data$stations
+
+# Only keep needed columns
+citibike_station_info <- citibike_station_info %>%
+  select("station_type", "short_name", "region_id", "name", "lat", "station_id", "capacity", "lon", "legacy_id")
+
+# Output to confirm data appears reasonable
+(citibike_station_info)
+```
+
+```{r}
+```
+
+
+```{r}
+# https://datawanderings.com/2018/09/01/r-point-in-polygon-a-mathematical-cookie-cutter/
+nyc_hoods_js@proj4string
+```
+
+```{r}
+coordinates(citibike_station_info) <- c("lon","lat")
+as(citibike_station_info,"SpatialPoints")
+```
+
+```{r}
+proj4string(citibike_station_info) <- CRS("+proj=longlat +datum=WGS84")
+proj4string(citibike_station_info) <- proj4string(nyc_hoods_js)
+```
+
+```{r}
+pointsinpoly <- over(citibike_station_info, nyc_hoods_js)
+
+pointsinpoly
+```
+
+```{r}
+output <- cbind(citibike_station_info,pointsinpoly)
+output
+```
+
+Ugh, okay, I was able to determine the neighborhood and borough for each of the 1708 stations
+
+# Ok, now for the availability
+
+```{r}
+stations_avail %>%
+  filter(station_status == 'active' & num_bikes_available >= 5)
+```
+
+```{r}
+cb_stations_avail <- 
+  merge(stations_avail, 
+      output, 
+      by.x=c('legacy_id'), 
+      by.y=c('legacy_id'), all.x = TRUE)
+
+#res[is.na(res)] <- 0
+time_station_avail <- cb_stations_avail %>%
+  select(legacy_id, station_status, num_bikes_available, short_name, name, capacity, ntaname, boro_name, lon, lat)
+
+time_station_avail
+```
+
+```{r}
+time_station_avail %>%
+  filter(station_status == 'active' & boro_name == "Brooklyn" & num_bikes_available < 5)
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+~~~~~
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```

@@ -7,6 +7,8 @@ output: html_document
 
 Using this tutorial: https://bar.rady.ucsd.edu/Viz1.html
 
+# NOTE: THE DATE IS FROM 2015, SO DON'T USE THE CHARTS
+
 ```{r}
 # Required packages
 library(tidyverse)

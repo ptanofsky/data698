@@ -7,8 +7,57 @@ output: html_document
 
 Scratch work using the September 2022 data, most recent as I'm working on this Oct. 30, 2022
 
+Update: v2, started working at 8:30p on Friday, Nov. 11, 2022
+
 
 Note to self: JC prefixed files are Jersey City, and thus it's all New Jersey info, so omit that, just focus on NYC data (no prefix)
+
+
+11/11/2022
+
+TODO
+
+- Geographical clustering
+
+- Clustering by Matrix (based on edges)
+  - Network graph to find the hubs and spanners
+  
+- Historical data: figure out rebalancing
+  - Use the blog post from the Python guy to understand how to discern and how to apply
+  
+- Data from chron script
+  - By Sunday morning I will have almost two weeks of full data
+  - When is rebalancing occuring based on availability count each 15 minutes
+  
+** How to combine the 3 datasets into one understanding?
+  - Current Ride trips
+  - Historical ride trips
+  - Availability data by station
+  ** Determine final dataset for model, current but how far back?
+  
+- Subway stops as related to Citibike activity
+
+- MODELS
+  - Find 4-5 models from the Lit Review and try them on the dataset
+  - Negative binomial clustering
+  - Zero-inflated 
+  - 3
+  - 4
+  
+** But what will be the most important factor? If it's linear regression that won't work
+
+** Do I need to include another piece of data?
+
+- Consider boroughs
+
+- Does R have a NYC neighborhood lookup?
+
+- How does elevation impact bike trips?
+
+- If I focus by station what can I learn if station focused?
+
+
+
 
 ```{r}
 # Required packages
