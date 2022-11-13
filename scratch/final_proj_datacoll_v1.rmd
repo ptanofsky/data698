@@ -72,6 +72,7 @@ library(leaflet)
 library(rgdal)
 library(RColorBrewer)
 library(jpeg)
+library(data.table)
 
 ```
 
@@ -80,10 +81,11 @@ Citi Bike provides individual bike trip data on a monthly basis available at htt
 ```{r read.trip.data, echo=F, message=F, warning=F, include=F, eval=T}
 # Create additional columns of pertinence
 # weekday, day of the month, trip duration in minutes, start hour
-citibike <- read.csv("data/202209-citibike-tripdata.csv", check.names=TRUE) %>%
+citibike <- fread("data/202209-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE) %>%
+#citibike <- read.csv("data/202209-citibike-tripdata.csv", check.names=TRUE) %>%
   mutate(day = factor(mday(ymd_hms(started_at))),
          start.hour=factor(hour(ymd_hms(started_at))),
-         weekday = wday(ymd_hms(started_at),label=TRUE,abbr=TRUE),
+         weekday = lubridate::wday(ymd_hms(started_at), label=TRUE, abbr=TRUE),
          trip.duration = as.numeric(difftime(ended_at,started_at,units="mins")),
          member_casual = factor(member_casual)) %>%
   rename(ride.id=ride_id, rideable.type=rideable_type, started.at=started_at,
@@ -376,8 +378,64 @@ edges_for_plot <- stations_for_graph %>%
 ```
 
 ```{r graph.metrics, echo=F, message=F, warning=F, include=T}
-farthest_vertices(g_stations)
+#farthest_vertices(g_stations)
 
+```
+
+### Surplus by borough
+
+```{r surplus.by.boro, echo=F, message=F, warning=F, include=T}
+stations_with_elevation <- read.csv('stations_with_elevation.csv', row.names = 1, header= TRUE)
+
+stations_with_boro_hood <- read.csv('stations_with_boro_and_hood.csv', row.names = 1, header= TRUE)
+
+# Combine the elevation, borough, neighborhood, and September surplus
+# First let's trim the DF for elevation
+stations_with_elevation_trim <- stations_with_elevation %>%
+  select(short_name, station_id, elevation, elev_units)
+
+stations_with_boro_hood_trim <- stations_with_boro_hood %>%
+  select(short_name, name, station_id, capacity, ntaname, boro_name, lon, lat)
+
+stations_attrs_trim <- 
+  merge(stations_with_elevation_trim, 
+        stations_with_boro_hood_trim, 
+        by.x=c('short_name'), 
+        by.y=c('short_name'), all = TRUE)
+
+stations_attrs_trim <- stations_attrs_trim %>%
+  select(-station_id.y)
+
+colnames(stations_attrs_trim)[colnames(stations_attrs_trim) == 'station_id.x'] <- 'station_id'
+
+stations_attrs_trim[c("boro_name")][is.na(stations_attrs_trim[c("boro_name")])] <- "New Jersey"
+
+stations_attrs_trim <- 
+  stations_attrs_trim %>% 
+  mutate(ntaname = ifelse(startsWith(short_name, "JC"), "Jersey City", ntaname))
+
+stations_attrs_trim <- 
+  stations_attrs_trim %>% 
+  mutate(ntaname = ifelse(startsWith(short_name, "HB"), "Hoboken", ntaname))
+
+
+stations_attrs_trim_sur <- 
+  merge(stations_attrs_trim, 
+        station_surplus_count, 
+        by.x=c('short_name'), 
+        by.y=c('station.id'), all.x = TRUE)
+
+stations_attrs_trim_sur <- stations_attrs_trim_sur %>%
+  filter(!is.na(surplus.sum))
+
+stations_attrs_trim_sur %>%
+  filter(surplus.sum >= -100 & surplus.sum <= 100) %>%
+  ggplot(aes(x=surplus.sum, color=boro_name)) +
+  theme(legend.position="top") +
+  geom_histogram(bins=201) +
+  facet_wrap(~boro_name) +
+  labs(x = 'Surplus Count',
+       y = 'Number of Stations')
 ```
 
 ## High-Level Exploration
