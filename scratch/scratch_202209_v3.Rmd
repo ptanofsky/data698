@@ -70,9 +70,14 @@ citibike <- read.csv("data/202209-citibike-tripdata.csv", check.names=TRUE) %>%
          weekday = wday(ymd_hms(started_at),label=TRUE,abbr=TRUE),
          trip.duration = as.numeric(difftime(ended_at,started_at,units="mins")),
          member_casual = factor(member_casual))
+#%>%
+#  rename(ride.id=ride_id, rideable.type=rideable_type, started.at=started_at,
+#         ended.at=ended_at, start.station.name=start_station_name, start.station.id=start_station_id,
+#         end.station.name=end_station_name, end.station.id=end_station_id, start.lat=start_lat,
+#         start.lng=start_lng, end.lat=end_lat, end.lng=end_lng, member.casual=member_casual)
 
 # Output DF if needed
-#citibike
+#head(citibike)
 ```
 
 Columns
@@ -112,7 +117,7 @@ Columns
 
 ```{r}
 # Output DF to visually check data
-citibike
+# citibike
 ```
 
 September contains 3,507,123 rows, so 3.5 million trips during the month of September 2022.
@@ -272,7 +277,6 @@ citibike %>%
   geom_density(alpha=0.2) +
   labs(x = 'Trip Duration (min.)',
        y = 'Number of Trips')
-  
 ```
 
 Separating the density plot by user type shows the casual users tend to have longer trips than member users.
@@ -379,7 +383,6 @@ Time series for total by day between the two user groups.Doesn't quite follow a 
 # Let's attempt hourly
 # First convert started_at into a timestamp format
 citibike$started_at <- as_datetime(as.character(citibike$started_at))
-
 #citibike
 ```
 
@@ -390,13 +393,11 @@ citibike_by_hour <- citibike %>%
   mutate(hour=lubridate::floor_date(started_at, "1 hour")) %>%
   group_by(hour, member_casual) %>%
   summarize(cnt=n())
-
 #citibike_by_hour
 
 citibike_by_hour_ts <- citibike_by_hour %>%
   as_tsibble(index=hour, key=c(member_casual))
-
-citibike_by_hour_ts
+#citibike_by_hour_ts
 ```
 
 ```{r}
@@ -478,8 +479,7 @@ stations_table <- stations_table %>%
   filter(Freq > 0)
 
 stations_table_order <- stations_table[order(-stations_table$Freq),]
-
-stations_table_order
+nrow(stations_table_order)
 ```
 
 472920 rows 
@@ -503,8 +503,7 @@ stations_table <- stations_table %>%
   filter(Freq > 0)
 
 stations_table_order <- stations_table[order(-stations_table$Freq),]
-
-stations_table_order
+nrow(stations_table_order)
 ```
 
 For all valid combinations of start to end, there are 472920 combinations
@@ -549,13 +548,13 @@ res[is.na(res)] <- 0
 ```{r}
 res$surplus <- res$Freq.y - res$Freq.x
 res <- res[order(-res$surplus),]
-res
+#res
 ```
 
 ```{r}
 # Remove rows with start station id equal to ABAN for abandoned, those are a result of the merge all=TRUE and should not exist
 res <- res %>% filter(start_station_id != 'ABAN')
-res
+#res
 ```
 
 Above returns a list of 619887 combinations given every start-end combo exists as the inverse is valid, too except for Abandoned starts
@@ -582,7 +581,7 @@ With Freq.x ==0 , there are 148,574  rows in which an end-to-start occurs, so th
 station_surplus_count <- res %>%
   group_by(start_station_id) %>%
   summarize(surplus_sum=sum(surplus))
-station_surplus_count
+#station_surplus_count
 ```
 The above indicates 1656 rows, 2 less than the count of end_station_id from the initial dataset
 
@@ -591,7 +590,7 @@ station_surplus_count <- station_surplus_count[order(-station_surplus_count$surp
 #station_surplus_count %>%
 #    filter(startsWith(as.character(start_station_id), 'S'))
 colnames(station_surplus_count)[1] <- "station_id"
-station_surplus_count
+#station_surplus_count
 ```
 21 start with J
 14 start with H
@@ -625,8 +624,7 @@ station_surplus_count_coords <- merge(x = station_surplus_count, y = end_station
 
 colnames(station_surplus_count_coords)[3] <- "lng"
 colnames(station_surplus_count_coords)[4] <- "lat"
-station_surplus_count_coords
-
+#station_surplus_count_coords
 
 station_surplus_count_coords <- station_surplus_count_coords %>%
   add_row(station_id = "ABAN", surplus_sum=1363, lng=-73.99, lat=40.67)
@@ -637,7 +635,7 @@ Above table accounts for all the station IDs with overal surplus or not surplus 
 
 
 ```{r}
-res
+nrow(res)
 ```
 
 310,625 * 2 - 619,887 = 1363 (number of abandon rows ... this is correct)
@@ -648,23 +646,11 @@ res_temp <- res %>% select(start_station_id, end_station_id)
 
 
 res2 <- res_temp[!duplicated(lapply(as.data.frame(t(res_temp), stringsAsFactors=FALSE), sort)),]
-res2
+head(res2, 20)
 ```
 So now there are 310625 edges in the graph, a little over half ... which makes sense
 
 so now I need to add back on the surplus by merging ... actually I don't need to add the values, these are the edges and that should be sufficient.
-
-```{r}
-# Nodes
-#station_surplus_count_coords
-# station_id    surplus_sum   lng lat
-
-
-# Edges
-# res2
-#start_station_id     end_station_id
-```
-
 
 
 ```{r}
@@ -767,12 +753,13 @@ m <- leaflet(data=station_surplus_count_coords) %>%
   addTiles() %>%
   addCircleMarkers(
     ~lng, ~lat, 
-    popup=~as.character(station_id), 
-    label=~as.character(station_id), 
+    popup=~as.character(station.id), 
+    label=~as.character(station.id), 
     radius=.5,
-    color = ~ifelse(surplus_sum >= 1, 'blue', 
-                    ifelse(surplus_sum == 0, 'green', 'red'))
+    color = ~ifelse(surplus.sum >= 1, 'blue', 
+                    ifelse(surplus.sum == 0, 'green', 'red'))
   )
+
 
 # Display map
 m
@@ -784,8 +771,14 @@ Above map indicates the overall net bikes of a station for the given month
 - green, value is 0
 
 ```{r}
-#??? Delete this
-#sum(station_surplus_count_coords$surplus_sum)
+library(mapview)
+
+## 'leaflet' objects (image above)
+#m <- leaflet() %>% addTiles()
+mapshot(m, file = "stations_surplus_sum.jpg")
+```
+
+```{r}
 sum(station_surplus_count$surplus_sum)
 ```
 
@@ -825,7 +818,6 @@ head(station_surplus_count)
 # GOAL IS TO CREATE A MATRIX OF THE STARTS/ENDS FOR 15 MINUTE INTERVALS FOR EACH STATION
 
 
-
 ```{r}
 nrow(citibike)
 ```
@@ -843,7 +835,7 @@ citibike$ended_at <- as_datetime(as.character(citibike$ended_at))
 #citibike$end_station_name[citibike$end_station_name == ''] <- "Abandoned"
 #citibike$end_station_id[citibike$end_station_id  == ''] <- "ABAN"
 
-citibike
+head(citibike)
 ```
 
 ```{r}
@@ -854,7 +846,7 @@ citibike_by_start.interval <- citibike %>%
   group_by(start_station_id, start.interval) %>%
   summarize(start.count=n())
 
-citibike_by_start.interval
+head(citibike_by_start.interval)
 ```
 
 ```{r}
@@ -863,7 +855,7 @@ citibike_by_end.interval <- citibike %>%
   group_by(end_station_id, end.interval) %>%
   summarize(count=n())
 
-citibike_by_end.interval
+head(citibike_by_end.interval)
 ```
 
 ```{r}
@@ -882,6 +874,7 @@ citibike_by_interval <-
 citibike_by_interval[is.na(citibike_by_interval)] <- 0
 citibike_by_interval
 ```
+
 ```{r}
 # Rename columns
 colnames(citibike_by_interval)[1] <- "station_id"
@@ -889,21 +882,21 @@ colnames(citibike_by_interval)[2] <- "interval_start.time"
 colnames(citibike_by_interval)[3] <- "depart.count"
 colnames(citibike_by_interval)[4] <- "arrive.count"
 
-citibike_by_interval
+head(citibike_by_interval)
 ```
 
 ```{r}
 # Calculate surplus
 citibike_by_interval$surplus <- citibike_by_interval$arrive.count - citibike_by_interval$depart.count
 
-citibike_by_interval
+head(citibike_by_interval)
 ```
 
 ```{r}
 citibike_by_interval_surplus <- citibike_by_interval %>%
   select(station_id, interval_start.time, surplus)
 
-citibike_by_interval_surplus
+head(citibike_by_interval_surplus)
 ```
 
 
@@ -923,7 +916,7 @@ citibike_by_interval_surplus_wide[is.na(citibike_by_interval_surplus_wide)] <- 0
 
 # For ordering
 citibike_by_interval_surplus_wide <- citibike_by_interval_surplus_wide[order(citibike_by_interval_surplus_wide$interval_start.time),]
-citibike_by_interval_surplus_wide
+head(citibike_by_interval_surplus_wide)
 ```
 # Nice the above matrix is by time and then for all the columns are stations with the plus/minus for each 15 minute interval
 
@@ -931,7 +924,7 @@ citibike_by_interval_surplus_wide
 
 ```{r}
 citibike_by_interval_surplus_wide_cs <- cumsum(citibike_by_interval_surplus_wide[2:1659])
-citibike_by_interval_surplus_wide_cs
+head(citibike_by_interval_surplus_wide_cs)
 ```
 
 ```{r}
@@ -948,7 +941,7 @@ time_index <- citibike_by_interval_surplus_wide$interval_start.time
 ```{r}
 
 citibike_by_interval_surplus_wide_cs <- cbind(time_index, citibike_by_interval_surplus_wide_cs)
-citibike_by_interval_surplus_wide_cs
+head(citibike_by_interval_surplus_wide_cs)
 ```
 
 Alright, so `citibike_by_interval_surplus_wide_cs` is the running total of each station
@@ -979,7 +972,7 @@ citibike_station_info <- citibike_station_info %>%
   select("station_type", "short_name", "has_kiosk", "region_id", "name", "lat", "station_id", "external_id", "capacity", "lon", "electric_bike_surcharge_waiver", "legacy_id")
 
 # Output to confirm data appears reasonable
-(citibike_station_info)
+head(citibike_station_info)
 ```
 
 ```{r}
@@ -991,7 +984,7 @@ citibike_station_info[is.na(citibike_station_info$lat),]
 station_surplus_data <- citibike_by_interval_surplus_wide
 
 # Output to confirm ... yes, it worked
-station_surplus_data
+head(station_surplus_data)
 ```
 
 ```{r eval=FALSE}
@@ -1014,13 +1007,13 @@ station_surplus_data
 station_surplus_data_long <- station_surplus_data %>%
   pivot_longer(!interval_start.time, names_to = "short_name", values_to = "surplus")
 
-station_surplus_data_long
+head(station_surplus_data_long)
 ```
 
 
 ```{r}
 station_surplus_data_long$interval_start.time <- as.POSIXct(station_surplus_data_long$interval_start.time)
-station_surplus_data_long
+head(station_surplus_data_long)
 ```
 
 2880 * 1658 = 4775040 ... so that worked
@@ -1030,7 +1023,7 @@ station_surplus_data_long
 # Select a date
 selectedData <- station_surplus_data_long[station_surplus_data_long$interval_start.time == "2022-09-01 12:00:00",]
 
-selectedData
+head(selectedData)
 ```
 Ok, the above appears to have worked, I'm able to select on an interval and get just those rows
 
@@ -1044,7 +1037,7 @@ Ok, now I'm down to my 1658 stations ... phew
 ```{r}
 citibike_nyc_station_info$Surplus <- selectedData$surplus[match(citibike_nyc_station_info$short_name, selectedData$short_name)]
 
-citibike_nyc_station_info
+head(citibike_nyc_station_info)
 ```
 
 
@@ -1085,7 +1078,7 @@ leaflet(citibike_nyc_station_info) %>%
 
 ```{r}
 missing_data <- citibike_nyc_station_info[is.na(citibike_nyc_station_info$lat),]
-missing_data
+head(missing_data)
 ```
 
 # Need to figure out the above!!! TODO
@@ -1096,12 +1089,12 @@ missing_data
 
 ```{r}
 stations_with_elevation <- read.csv('stations_with_elevation.csv', row.names = 1, header= TRUE)
-stations_with_elevation
+head(stations_with_elevation)
 ```
 
 ```{r}
 stations_with_boro_hood <- read.csv('stations_with_boro_and_hood.csv', row.names = 1, header= TRUE)
-stations_with_boro_hood
+head(stations_with_boro_hood)
 ```
 
 
@@ -1111,14 +1104,14 @@ stations_with_boro_hood
 stations_with_elevation_trim <- stations_with_elevation %>%
   select(short_name, station_id, elevation, elev_units)
 
-stations_with_elevation_trim
+head(stations_with_elevation_trim)
 ```
 
 ```{r}
 stations_with_boro_hood_trim <- stations_with_boro_hood %>%
   select(short_name, name, station_id, capacity, ntaname, boro_name, lon, lat)
 
-stations_with_boro_hood_trim
+head(stations_with_boro_hood_trim)
 ```
 
 
@@ -1144,7 +1137,7 @@ stations_attrs_trim <-
   stations_attrs_trim %>% 
   mutate(ntaname = ifelse(startsWith(short_name, "HB"), "Hoboken", ntaname))
 
-stations_attrs_trim
+head(stations_attrs_trim)
 ```
 Above is good
 
@@ -1160,7 +1153,7 @@ stations_attrs_trim %>%
 ```
 
 ```{r}
-station_surplus_count
+#station_surplus_count
 ```
 
 ```{r}
@@ -1170,14 +1163,14 @@ stations_attrs_trim_sur <-
         by.x=c('short_name'), 
         by.y=c('station_id'), all.x = TRUE)
 
-stations_attrs_trim_sur
+#stations_attrs_trim_sur
 ```
 
 ```{r}
 stations_attrs_trim_sur <- stations_attrs_trim_sur %>%
   filter(!is.na(surplus_sum))
 
-stations_attrs_trim_sur
+#stations_attrs_trim_sur
 ```
 
 Hmm, I lost 74 by removing surplus_sum with NA, which actually removed a few NYC stations.
