@@ -59,6 +59,9 @@ colnames(station_surplus_data) <- col_name
 # Output to confirm ... yes, it worked
 station_surplus_data
 ```
+```{r}
+col_name
+```
 
 ```{r}
 # Pivot longer
@@ -98,7 +101,7 @@ col_name
 ```{r}
 citibike_nyc_station_info <- merge(x = citibike_station_info, y = col_name, by.x = 'short_name', by.y='col_name', all.y = TRUE)
 
-citibike_nyc_station_info[is.na(citibike_nyc_station_info),]
+tail(citibike_nyc_station_info)
 ```
 Ok, now I'm down to my 1658 stations ... phew
 
@@ -106,7 +109,7 @@ Ok, now I'm down to my 1658 stations ... phew
 ```{r}
 citibike_nyc_station_info$Surplus <- selectedData$surplus[match(citibike_nyc_station_info$short_name, selectedData$short_name)]
 
-citibike_nyc_station_info
+tail(citibike_nyc_station_info)
 ```
 
 

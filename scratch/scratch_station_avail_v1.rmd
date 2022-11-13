@@ -68,8 +68,6 @@ citibike_station_info <- citibike_station_info %>%
 (citibike_station_info)
 ```
 
-```{r}
-```
 
 
 ```{r}
@@ -96,6 +94,8 @@ pointsinpoly
 ```{r}
 output <- cbind(citibike_station_info,pointsinpoly)
 output
+
+write.csv(output, file = 'stations_with_boro_and_hood.csv')
 ```
 
 Ugh, okay, I was able to determine the neighborhood and borough for each of the 1708 stations
