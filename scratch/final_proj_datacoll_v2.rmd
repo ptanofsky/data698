@@ -1,6 +1,6 @@
 ---
 title: "DATA 698 Final Research Project"
-subtitle: "Data Collection & Processing"
+subtitle: "Data Collection & Exploratory Analysis"
 author: "Philip Tanofsky"
 date: "`r Sys.Date()`"
 output:
