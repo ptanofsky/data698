@@ -1,0 +1,313 @@
+---
+title: "Scratch Clean Station Metadata"
+author: "Philip Tanofsky"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r libraries, echo=F, message=F, warning=F, include=F}
+# Required packages
+library(tidyverse)
+library(ggplot2)
+library(skimr)
+library(lubridate)
+library(jsonlite)
+#library(fpp3)
+#library(assertthat)
+#library(igraph)
+#library(ggraph)
+#library(ggmap)
+#library(leaflet)
+#library(rgdal)
+#library(RColorBrewer)
+```
+
+
+```{r surplus.by.boro, echo=F, message=F, warning=F, include=T}
+stations_with_elevation <- read.csv('stations_with_elevation.csv', row.names = 1, header= TRUE)
+
+stations_with_boro_hood <- read.csv('stations_with_boro_and_hood.csv', row.names = 1, header= TRUE)
+
+# Combine the elevation, borough, neighborhood, and September surplus
+# First let's trim the DF for elevation
+stations_with_elevation_trim <- stations_with_elevation %>%
+  select(short_name, station_id, elevation, elev_units)
+
+stations_with_boro_hood_trim <- stations_with_boro_hood %>%
+  select(short_name, name, station_id, capacity, ntaname, boro_name, lon, lat)
+
+stations_attrs_trim <- 
+  merge(stations_with_elevation_trim, 
+        stations_with_boro_hood_trim, 
+        by.x=c('short_name'), 
+        by.y=c('short_name'), all = TRUE)
+
+stations_attrs_trim <- stations_attrs_trim %>%
+  select(-station_id.y)
+
+colnames(stations_attrs_trim)[colnames(stations_attrs_trim) == 'station_id.x'] <- 'station_id'
+
+stations_attrs_trim[c("boro_name")][is.na(stations_attrs_trim[c("boro_name")])] <- "New Jersey"
+
+stations_attrs_trim <- 
+  stations_attrs_trim %>% 
+  mutate(ntaname = ifelse(startsWith(short_name, "JC"), "Jersey City", ntaname))
+
+stations_attrs_trim <- 
+  stations_attrs_trim %>% 
+  mutate(ntaname = ifelse(startsWith(short_name, "HB"), "Hoboken", ntaname))
+
+stations_attrs_trim <- stations_attrs_trim %>%
+  rename(short.name=short_name, station.id=station_id, elev.units=elev_units, nta.name=ntaname, boro.name=boro_name)
+  
+
+head(stations_attrs_trim)
+```
+
+```{r}
+nrow(stations_attrs_trim)
+#1708 and stations in this file
+```
+
+```{r}
+stations_with_bike_avail <- read.csv('bike_avail_by_station_and_time.csv', row.names = 1, header= TRUE, check.names = FALSE)
+```
+
+```{r}
+# extract column names
+colnames_bike_avail <- colnames(stations_with_bike_avail)
+```
+
+1802 columns, remove 1 (timestamp), so this means a total of 1801 station numbers
+
+```{r}
+stations_missing_from_metadata <- setdiff(colnames_bike_avail[-1],stations_attrs_trim$station.id)
+```
+
+104 are in the availability file but not in the station metadata file
+
+```{r}
+stations_missing_from_metadata
+```
+
+```{r}
+# Let's try the clustering
+# https://www.r-bloggers.com/2019/06/hierarchical-clustering-for-location-based-strategy-using-r-for-e-commerce/
+library(geosphere)
+
+# Distance matrix for docking stations
+# Result is in meters
+dist_mat <- distm(stations_attrs_trim[9:10], stations_attrs_trim[9:10], fun=distHaversine)
+dist_mat <- as.data.frame(dist_mat)
+```
+
+```{r}
+dist_mat[is.na(dist_mat)] <- 0
+
+dMat <- as.dist(dist_mat)
+```
+
+```{r}
+dMat[1:10]
+```
+
+```{r}
+# Now for the clustering
+hier_clust <- hclust(dMat, method = "complete")
+# 400 meters is about a quarter of a mile (0.248548 miles)
+stations_attrs_trim$cluster <- cutree(hier_clust, h=400)
+```
+
+```{r}
+stations_attrs_trim
+```
+
+1700 / 733 is 2.32, so ~2 docking stations per cluster
+
+```{r}
+# Predict with time series
+# Poisson
+# Negative Binomial
+```
+
+```{r}
+# Lat/long of 790 Classon 40.652256, -73.956582
+```
+
+```{r}
+# calculating a nearest neighbor
+#distance <- sqrt(rowSums((df-do.call(rbind,replicate(nrow(df),p,simplify = FALSE)))**2))
+#nearest <- df[which.min(distance),]
+# Instead, follow the steps here:
+# https://stackoverflow.com/questions/21977720/r-finding-closest-neighboring-point-and-number-of-neighbors-within-a-given-rad
+```
+
+```{r}
+stations_with_bike_avail
+```
+
+```{r}
+stations_with_bike_avail_long <- stations_with_bike_avail %>%
+  pivot_longer(!timestamp, names_to = "station.id", values_to = "bikes.avail.count")
+```
+Pivot longer results in 2418743 rows
+
+```{r}
+station_to_cluster <- stations_attrs_trim %>%
+  select(station.id, cluster)
+
+head(station_to_cluster)
+```
+
+```{r}
+# station_to_cluster contains the cluster number for each station
+# So now merge with stations_with_bike_avail_long
+```
+
+```{r}
+
+```
+
+```{r}
+# Merge long df with counts with station.id and cluster to label clusters properly
+stations_bike_avail_by_time <- 
+  merge(stations_with_bike_avail_long, 
+        station_to_cluster, 
+        by.x=c('station.id'), 
+        by.y=c('station.id'), all.x = TRUE)
+```
+
+```{r}
+stations_bike_avail_by_time_no_na <- stations_bike_avail_by_time %>%
+  filter(!is.na(cluster))
+```
+139,672 rows without a cluster because there are more station.id values from API compared to station information json which contained the lat and long
+
+```{r}
+stations_bike_avail_by_time_no_na
+```
+
+```{r}
+# group by cluster ID for each timestamp
+stations_bike_avail_by_time_no_na_group <- aggregate(bikes.avail.count ~ timestamp + cluster, data = stations_bike_avail_by_time_no_na, FUN = sum, na.rm = TRUE)
+```
+
+
+```{r}
+stations_bike_avail_by_time_no_na_group <- stations_bike_avail_by_time_no_na_group[order(timestamp),]
+```
+
+```{r}
+stations_bike_avail_by_time_no_na_group
+```
+
+```{r}
+# mutate to conver timestamp into day of the week, etc.
+stations_bike_avail_by_time_no_na_group <- stations_bike_avail_by_time_no_na_group %>%
+  mutate(time=as.ITime(ymd_hms(timestamp)),
+         weekday = lubridate::wday(ymd_hms(timestamp),label=TRUE,abbr=TRUE))
+```
+
+```{r}
+stations_bike_avail_by_time_no_na_group
+```
+
+```{r}
+skim(stations_bike_avail_by_time_no_na_group)
+```
+
+```{r}
+# https://stats.oarc.ucla.edu/r/dae/negative-binomial-regression/
+library(MASS)
+```
+
+```{r}
+summary(m1 <- glm.nb(bikes.avail.count ~ cluster + time + weekday, data = stations_bike_avail_by_time_no_na_group))
+```
+
+```{r}
+m2 <- update(m1, . ~ . - weekday)
+anova(m1, m2)
+```
+
+```{r}
+m3 <- glm(bikes.avail.count ~ cluster + time + weekday, family = "poisson", data = stations_bike_avail_by_time_no_na_group)
+pchisq(2 * (logLik(m1) - logLik(m3)), df = 1, lower.tail = FALSE)
+```
+
+```{r}
+stations_bike_avail_by_time_no_na_group$cluster <- as.factor(stations_bike_avail_by_time_no_na_group$cluster)
+stations_bike_avail_by_time_no_na_group$time <- as.factor(stations_bike_avail_by_time_no_na_group$time)
+stations_bike_avail_by_time_no_na_group$weekday <- as.factor(stations_bike_avail_by_time_no_na_group$weekday)
+```
+
+```{r}
+
+```
+
+```{r}
+stations_bike_avail_by_time_no_na_group
+```
+
+```{r}
+# following these steps
+# https://www.r-bloggers.com/2020/01/count-data-models/
+```
+
+```{r}
+tab <- table(stations_bike_avail_by_time_no_na_group$bikes.avail.count)
+tab
+# Below shows the range of values for `bikes.avail.count` with 35611 at zero and max of 438 with one occurrence
+```
+
+```{r}
+stations_bike_avail_by_time_no_timestamp <- subset(stations_bike_avail_by_time_no_na_group, select=-c(timestamp))
+```
+
+```{r}
+stations_bike_avail_by_time_no_timestamp
+```
+
+```{r}
+stations_bike_avail_by_time_no_timestamp_1 <- modify_if(stations_bike_avail_by_time_no_timestamp, is.factor, as.integer)
+```
+
+```{r}
+library(corrr)
+M <- correlate(stations_bike_avail_by_time_no_timestamp_1, method="spearman")
+rplot(shave(M), colours=c("red", "white", "blue" ))+
+   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+```{r}
+# Start with data partition here.
+set.seed(8675309)
+index <- sample(2, nrow(stations_bike_avail_by_time_no_timestamp), replace = TRUE, p=c(0.8, 0.2))
+train <- stations_bike_avail_by_time_no_timestamp[index==1,]
+test <- stations_bike_avail_by_time_no_timestamp[index==2,]
+```
+
+```{r}
+m1 <- glm(bikes.avail.count ~ cluster + time + weekday, data = train, family ="poisson")
+tidy(m1)
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```

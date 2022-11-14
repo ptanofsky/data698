@@ -1,0 +1,311 @@
+---
+title: "Scratch Read In API Data"
+author: "Philip Tanofsky"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r libraries, echo=F, message=F, warning=F, include=F}
+# Required packages
+library(tidyverse)
+library(ggplot2)
+library(skimr)
+library(lubridate)
+library(jsonlite)
+#library(fpp3)
+#library(assertthat)
+#library(igraph)
+#library(ggraph)
+#library(ggmap)
+#library(leaflet)
+#library(rgdal)
+#library(RColorBrewer)
+```
+
+1. Read in file names with grep
+2. Loop through files
+  - Read in
+  - Extract needed data
+  - construct row for dataframe
+  
+  
+I believe of the 2 weeks, I'm missing 1 file (1343 files) 1344 is 96 * 14
+
+```{r}
+path_to_data <- "data/api_station_status/"
+file_names <- list.files(path=path_to_data)
+tail(file_names)
+```
+```{r}
+extract_bike_avail_from_file <- function(file_name) {
+  
+  file_name_and_path <- paste(path_to_data, file_name, sep="")
+  # Get JSON file data
+  cb_station_status_raw <- fromJSON(file_name_and_path)
+  # Just want the stations info from JSON object
+  cb_station_status_raw <- cb_station_status_raw$data$stations
+
+  # Select columns and rename
+  cb_station_status <- cb_station_status_raw %>%
+    select('station_id', 'legacy_id', 'num_bikes_available', 'num_ebikes_available', 
+           'num_docks_available', 'station_status', 'is_returning', 'is_renting') %>%
+    rename(station.id=station_id, legacy.id= legacy_id, num.bikes.avail=num_bikes_available,
+           num.ebikes.avail=num_ebikes_available, num.docks.avail=num_docks_available,
+           station.status=station_status, is.returning=is_returning, is.renting=is_renting)
+  
+  timestamp_for_row <- floor_date(parse_date_time(gsub("\\..*","", file_name), 
+                                                              "Ymd HMS", truncated = 3), "15 minute")
+  
+  # Add column with datetime
+  cb_station_status['timestamp'] <- timestamp_for_row
+  
+  # Add column for total bikes available
+  cb_station_status['num.total.bikes.avail'] = cb_station_status$num.bikes.avail +
+    cb_station_status$num.ebikes.avail
+
+# If station is out of service (meaning not renting) then set total avail bikes to 0
+  cb_station_status <- 
+    cb_station_status %>% 
+    mutate(num.total.bikes.avail = ifelse(station.status == 'out_of_service', 0, num.total.bikes.avail))
+  
+  # Trim DF to just time, station.id, and total bikes
+  cb_station_status_trim <- cb_station_status %>%
+    select(timestamp, station.id, num.total.bikes.avail)
+
+  # Exception scenario, as station 4998 missing from some JSON
+  if ( !('4998' %in% cb_station_status_trim$station.id) ) {
+    cb_station_status_trim <- cb_station_status_trim %>%
+      add_row(timestamp=timestamp_for_row, station.id='4998', num.total.bikes.avail=0)
+  }
+  
+  # Exception scenario, as station 4998 missing from some JSON
+  if ( !('4996' %in% cb_station_status_trim$station.id) ) {
+    cb_station_status_trim <- cb_station_status_trim %>%
+      add_row(timestamp=timestamp_for_row, station.id='4996', num.total.bikes.avail=0)
+  }
+  
+  # Exception scenario, as station 4998 missing from some JSON
+  if ( !('4989' %in% cb_station_status_trim$station.id) ) {
+    cb_station_status_trim <- cb_station_status_trim %>%
+      add_row(timestamp=timestamp_for_row, station.id='4989', num.total.bikes.avail=0)
+  }
+  
+  # Exception scenario, as station 4998 missing from some JSON
+  if ( !('4994' %in% cb_station_status_trim$station.id) ) {
+    cb_station_status_trim <- cb_station_status_trim %>%
+      add_row(timestamp=timestamp_for_row, station.id='4994', num.total.bikes.avail=0)
+  }
+  
+  # Exception scenario, as station 4998 missing from some JSON
+  if ( !('4031' %in% cb_station_status_trim$station.id) ) {
+    cb_station_status_trim <- cb_station_status_trim %>%
+      add_row(timestamp=timestamp_for_row, station.id='4031', num.total.bikes.avail=0)
+  }
+  
+  # Exception scenario, as station 4998 missing from some JSON
+  if ( !('4993' %in% cb_station_status_trim$station.id) ) {
+    cb_station_status_trim <- cb_station_status_trim %>%
+      add_row(timestamp=timestamp_for_row, station.id='4993', num.total.bikes.avail=0)
+  }
+  
+  # Exception scenario, as station 4998 missing from some JSON
+  if ( !('5004' %in% cb_station_status_trim$station.id) ) {
+    cb_station_status_trim <- cb_station_status_trim %>%
+      add_row(timestamp=timestamp_for_row, station.id='5004', num.total.bikes.avail=0)
+  }
+  
+  # Exception scenario, as station 4998 missing from some JSON
+  if ( !('3542' %in% cb_station_status_trim$station.id) ) {
+    cb_station_status_trim <- cb_station_status_trim %>%
+      add_row(timestamp=timestamp_for_row, station.id='3542', num.total.bikes.avail=0)
+  }
+  
+  # Exception scenario, as station 4998 missing from some JSON
+  if ( !('4992' %in% cb_station_status_trim$station.id) ) {
+    cb_station_status_trim <- cb_station_status_trim %>%
+      add_row(timestamp=timestamp_for_row, station.id='4992', num.total.bikes.avail=0)
+  }
+  
+    # Pivot wide
+  timestamp_row <-cb_station_status_trim %>%
+    pivot_wider(names_from = station.id, values_from = num.total.bikes.avail)
+  
+  return(timestamp_row)
+}
+```
+
+```{r}
+# Prime the dataframe with the intial row to get all the column names defined
+bike_avail_by_station_and_time <- extract_bike_avail_from_file(file_names[1])
+bike_avail_by_station_and_time
+```
+
+```{r}
+# Loop through the file names
+for (x in file_names[-1]) {
+  #print(x)
+  bike_avail_by_station_and_time <- bike_avail_by_station_and_time %>%
+    add_row(extract_bike_avail_from_file(x))
+}
+
+tail(bike_avail_by_station_and_time, 24)
+```
+
+```{r}
+# Alright, below is CSV of availability at 15-minute mark for two weeks
+#write.csv(bike_avail_by_station_and_time, file = 'bike_avail_by_station_and_time.csv')
+
+```
+
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+# BELOW IS SCRATCH WORK TO CREATE THE FUNCTION
+
+```{r}
+file_name_and_path <- paste(path_to_data, file_names[1], sep="")
+
+cb_station_status_raw <- fromJSON(file_name_and_path)
+# Just want the stations info from JSON object
+cb_station_status_raw <- cb_station_status_raw$data$stations
+```
+
+```{r}
+# Select columns and rename
+cb_station_status <- cb_station_status_raw %>%
+  select('station_id', 'legacy_id', 'num_bikes_available', 'num_ebikes_available', 'num_docks_available', 'station_status', 'is_returning', 'is_renting') %>%
+  rename(station.id=station_id, legacy.id= legacy_id, num.bikes.avail=num_bikes_available,
+         num.ebikes.avail=num_ebikes_available, num.docks.avail=num_docks_available,
+         station.status=station_status, is.returning=is_returning, is.renting=is_renting)
+
+# Add column with datetime
+cb_station_status['timestamp'] = floor_date(parse_date_time(gsub("\\..*","", file_names[1]), "Ymd HMS", truncated = 3), "15 minute")
+
+cb_station_status['num.total.bikes.avail'] = cb_station_status$num.bikes.avail + cb_station_status$num.ebikes.avail
+
+head(cb_station_status)
+```
+
+```{r}
+# I need to convert the file name into the timestamp
+# Remove .json extension
+# Convert string to datetime
+# Take the floor to 15 minutes to ensure uniformity of 15 minutes
+floor_date(parse_date_time(gsub("\\..*","", file_names[1]), "Ymd HMS", truncated = 3), "15 minute")
+```
+
+ 
+```{r}
+gsub("\\_.*","", file_names[1])
+```
+
+```{r}
+# Ok, so this object has the counts
+head(cb_station_status)
+```
+
+```{r}
+# If station is out of service or is.renting is 0 (meaning not renting) then set total avail bikes to 0
+cb_station_status <- 
+  cb_station_status %>% 
+  mutate(num.total.bikes.avail = ifelse(station.status == 'out_of_service', 0, num.total.bikes.avail))
+
+head(cb_station_status)
+```
+
+```{r}
+# Trim DF to just time, station.id, and total bikes
+cb_station_status_trim <- cb_station_status %>%
+  select(timestamp, station.id, num.total.bikes.avail)
+
+head(cb_station_status_trim)
+```
+
+```{r}
+timestamp_row <-cb_station_status_trim %>%
+  pivot_wider(names_from = station.id, values_from = num.total.bikes.avail)
+
+timestamp_row
+```
+
+
+~~~~~
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
