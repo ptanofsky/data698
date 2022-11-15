@@ -7,11 +7,13 @@ output: html_document
 
 ```{r libraries, echo=F, message=F, warning=F, include=F}
 # Required packages
+#library(data.table)
 library(tidyverse)
 library(ggplot2)
 library(skimr)
 library(lubridate)
 library(jsonlite)
+library(MASS)
 #library(fpp3)
 #library(assertthat)
 #library(igraph)
@@ -31,10 +33,10 @@ stations_with_boro_hood <- read.csv('stations_with_boro_and_hood.csv', row.names
 # Combine the elevation, borough, neighborhood, and September surplus
 # First let's trim the DF for elevation
 stations_with_elevation_trim <- stations_with_elevation %>%
-  select(short_name, station_id, elevation, elev_units)
+  dplyr::select(short_name, station_id, elevation, elev_units)
 
 stations_with_boro_hood_trim <- stations_with_boro_hood %>%
-  select(short_name, name, station_id, capacity, ntaname, boro_name, lon, lat)
+  dplyr::select(short_name, name, station_id, capacity, ntaname, boro_name, lon, lat)
 
 stations_attrs_trim <- 
   merge(stations_with_elevation_trim, 
@@ -43,7 +45,7 @@ stations_attrs_trim <-
         by.y=c('short_name'), all = TRUE)
 
 stations_attrs_trim <- stations_attrs_trim %>%
-  select(-station_id.y)
+  dplyr::select(-station_id.y)
 
 colnames(stations_attrs_trim)[colnames(stations_attrs_trim) == 'station_id.x'] <- 'station_id'
 
@@ -154,7 +156,7 @@ Pivot longer results in 2418743 rows
 
 ```{r}
 station_to_cluster <- stations_attrs_trim %>%
-  select(station.id, cluster)
+  dplyr::select(station.id, cluster)
 
 head(station_to_cluster)
 ```
@@ -192,9 +194,12 @@ stations_bike_avail_by_time_no_na
 stations_bike_avail_by_time_no_na_group <- aggregate(bikes.avail.count ~ timestamp + cluster, data = stations_bike_avail_by_time_no_na, FUN = sum, na.rm = TRUE)
 ```
 
+```{r}
+class(stations_bike_avail_by_time_no_na_group$timestamp)
+```
 
 ```{r}
-stations_bike_avail_by_time_no_na_group <- stations_bike_avail_by_time_no_na_group[order(timestamp),]
+stations_bike_avail_by_time_no_na_group <- stations_bike_avail_by_time_no_na_group[order(stations_bike_avail_by_time_no_na_group$timestamp),]
 ```
 
 ```{r}
@@ -218,7 +223,6 @@ skim(stations_bike_avail_by_time_no_na_group)
 
 ```{r}
 # https://stats.oarc.ucla.edu/r/dae/negative-binomial-regression/
-library(MASS)
 ```
 
 ```{r}
@@ -239,10 +243,6 @@ pchisq(2 * (logLik(m1) - logLik(m3)), df = 1, lower.tail = FALSE)
 stations_bike_avail_by_time_no_na_group$cluster <- as.factor(stations_bike_avail_by_time_no_na_group$cluster)
 stations_bike_avail_by_time_no_na_group$time <- as.factor(stations_bike_avail_by_time_no_na_group$time)
 stations_bike_avail_by_time_no_na_group$weekday <- as.factor(stations_bike_avail_by_time_no_na_group$weekday)
-```
-
-```{r}
-
 ```
 
 ```{r}
@@ -288,12 +288,12 @@ test <- stations_bike_avail_by_time_no_timestamp[index==2,]
 ```
 
 ```{r}
-m1 <- glm(bikes.avail.count ~ cluster + time + weekday, data = train, family ="poisson")
-tidy(m1)
+mod1 <- glm(bikes.avail.count ~ cluster + time + weekday, data = train, family ="poisson")
+tidy(mod1)
 ```
 
 ```{r}
-
+m3 <- glm(bikes.avail.count ~ cluster + time + weekday, family = "poisson", data = stations_bike_avail_by_time_no_na_group)
 ```
 
 ```{r}
