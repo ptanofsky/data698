@@ -851,7 +851,7 @@ head(citibike_by_start.interval)
 
 ```{r}
 citibike_by_end.interval <- citibike %>%
-  mutate(end.interval=lubridate::floor_date(started_at, "15 min")) %>%
+  mutate(end.interval=lubridate::floor_date(ended_at, "15 min")) %>%
   group_by(end_station_id, end.interval) %>%
   summarize(count=n())
 

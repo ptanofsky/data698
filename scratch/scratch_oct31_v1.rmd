@@ -1,0 +1,350 @@
+---
+title: "Scratch Oct 31 Trip and Status v1"
+author: "Philip Tanofsky"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+```{r libraries, echo=F, message=F, warning=F, include=F}
+# Required packages
+library(tidyverse)
+library(ggplot2)
+library(skimr)
+library(lubridate)
+library(jsonlite)
+#library(MASS)
+#library(fpp3)
+#library(assertthat)
+#library(igraph)
+#library(ggraph)
+#library(ggmap)
+#library(leaflet)
+#library(rgdal)
+#library(RColorBrewer)
+#library(data.table)
+```
+
+```{r}
+# Create additional columns of pertinence
+# weekday, day of the month, trip duration in minutes, start hour
+citibike <- fread("data/202210-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE) %>%
+  mutate(day = factor(mday(ymd_hms(started_at))),
+         start.hour=factor(hour(ymd_hms(started_at))),
+         weekday = lubridate::wday(ymd_hms(started_at), label=TRUE, abbr=TRUE),
+         trip.duration = as.numeric(difftime(ended_at,started_at,units="mins")),
+         member_casual = factor(member_casual)) %>%
+  rename(ride.id=ride_id, rideable.type=rideable_type, started.at=started_at,
+         ended.at=ended_at, start.station.name=start_station_name, start.station.id=start_station_id,
+         end.station.name=end_station_name, end.station.id=end_station_id, start.lat=start_lat,
+         start.lng=start_lng, end.lat=end_lat, end.lng=end_lng, member.casual=member_casual)
+
+
+# Figure out abandoned and label them
+citibike$end.station.name[citibike$end.station.name == ''] <- "Abandoned"
+citibike$end.station.id[citibike$end.station.id  == ''] <- "ABAN"
+
+# Output DF if needed
+head(citibike)
+```
+
+```{r}
+citibike_oct31 <- citibike %>%
+  filter(started.at >= '2022-10-30 20:00:00') # Minus 4 hours to get midnight of Oct. 31
+```
+
+```{r}
+citibike_oct31 <- citibike_oct31[order(citibike_oct31$started.at),]
+citibike_oct31
+```
+
+```{r}
+citibike_oct31 %>%
+  filter(start.station.id == "3960.01") %>%
+  summarize(min(ended.at))
+```
+
+Apparently no activity before 5am on Oct. 31
+
+# Building table of surplus counts
+
+```{r calculate.surplus, echo=F, message=F, warning=F, include=T}
+# Create table of start to end station IDs
+stations_cols <- citibike_oct31 %>%
+  dplyr::select(start.station.id, end.station.id)
+
+stations_table <- as.data.frame((table(stations_cols)))
+
+stations_table <- stations_table %>%
+  filter(Freq > 0)
+
+stations_table_order <- stations_table[order(-stations_table$Freq),]
+
+stations_table_dif <- stations_table_order %>%
+  filter(as.character(start.station.id) != as.character(end.station.id))
+
+# Create table of start to end station IDs
+stations_cols <- citibike_oct31 %>%
+  dplyr::select(start.station.id, end.station.id)
+stations_table <- as.data.frame((table(stations_cols)))
+
+stations_table <- stations_table %>%
+  filter(Freq > 0)
+
+stations_table_order <- stations_table[order(-stations_table$Freq),]
+
+stations_table_dif <- stations_table_order %>%
+  filter(as.character(start.station.id) != as.character(end.station.id))
+
+stations_table_dif1 <- stations_table_dif
+stations_table_dif2 <- stations_table_dif
+
+# Added all=TRUE to account for one-sided counts
+stations_table_dif_merge <- 
+  merge(stations_table_dif1, 
+      stations_table_dif1, 
+      by.x=c('start.station.id','end.station.id'), 
+      by.y=c('end.station.id','start.station.id'), all = TRUE)
+
+# Set the NA (one-sided trips) to count of 0
+stations_table_dif_merge[is.na(stations_table_dif_merge)] <- 0
+
+stations_table_dif_merge$surplus <- stations_table_dif_merge$Freq.y - stations_table_dif_merge$Freq.x
+stations_table_dif_merge <- stations_table_dif_merge[order(-stations_table_dif_merge$surplus),]
+
+# Remove rows with start station id equal to ABAN for abandoned, those are a result of the merge all=TRUE and should not exist
+stations_table_dif_merge <- stations_table_dif_merge %>% filter(start.station.id != 'ABAN')
+
+# Want to identify the surplus (or not) by station for the month
+station_surplus_count <- stations_table_dif_merge %>%
+  group_by(start.station.id) %>%
+  summarize(surplus.sum=sum(surplus))
+
+
+station_surplus_count <- station_surplus_count[order(-station_surplus_count$surplus.sum),]
+colnames(station_surplus_count)[1] <- "station.id"
+```
+
+
+
+
+```{r}
+station_surplus_count <- station_surplus_count[order(station_surplus_count$surplus.sum),]
+```
+
+```{r}
+station_surplus_count
+```
+
+So, over the course of 1 day, Oct. 31, 2022, these 10 stations have at least -30 or more shortage of bikes.
+
+```{r}
+citibike_oct31 %>%
+  filter(start.station.id == "5329.03")
+```
+
+```{r}
+citibike_bike_avail <- fread("bike_avail_by_station_and_time.csv", data.table=FALSE, check.names=FALSE)
+```
+
+```{r}
+citibike_bike_avail_426 <- citibike_bike_avail %>%
+  dplyr::select("timestamp", "426") %>%
+  filter(timestamp < "2022-10-31 20:00:00")
+citibike_bike_avail_426
+```
+
+```{r}
+station_boro <- fread("stations_with_boro_and_hood.csv", data.table=FALSE, check.names=FALSE)
+```
+
+```{r}
+station_boro %>%
+  filter(ntacode == "BK61")
+```
+
+```{r}
+# And now for grouping by 15 minutes
+citibike_by_start.interval <- citibike_oct31 %>%
+  filter(start.station.id == "5329.03") %>%
+  mutate(start.interval=lubridate::ceiling_date(started.at, "15 min")) %>%
+  group_by(start.station.id, start.interval) %>%
+  summarize(start.count=n())
+
+(citibike_by_start.interval)
+```
+
+```{r}
+citibike_by_end.interval <- citibike_oct31 %>%
+  filter(end.station.id == "5329.03") %>%
+  mutate(end.interval=lubridate::ceiling_date(ended.at, "15 min")) %>%
+  group_by(end.station.id, end.interval) %>%
+  summarize(count=n())
+
+(citibike_by_end.interval)
+```
+
+```{r}
+# Now I Need to merge by station_id and time interval
+
+citibike_by_interval <- 
+  merge(citibike_by_start.interval, 
+        citibike_by_end.interval, 
+        by.x=c('start.station.id','start.interval'), 
+        by.y=c('end.station.id','end.interval'), all = TRUE)
+```
+
+```{r}
+citibike_by_interval[is.na(citibike_by_interval)] <- 0
+citibike_by_interval
+```
+
+```{r}
+# Rename columns
+colnames(citibike_by_interval)[1] <- "station_id"
+colnames(citibike_by_interval)[2] <- "interval_start.time"
+colnames(citibike_by_interval)[3] <- "depart.count"
+colnames(citibike_by_interval)[4] <- "arrive.count"
+
+(citibike_by_interval)
+```
+
+```{r}
+# Calculate surplus
+citibike_by_interval$surplus <- citibike_by_interval$arrive.count - citibike_by_interval$depart.count
+
+(citibike_by_interval)
+```
+
+```{r}
+citibike_by_interval_surplus <- citibike_by_interval %>%
+  dplyr::select(station_id, interval_start.time, surplus) %>%
+  rename(interval.start.time = interval_start.time)
+
+(citibike_by_interval_surplus)
+```
+
+```{r}
+citibike_bike_avail_426
+```
+
+```{r}
+
+citibike_station_426 <- 
+  merge(citibike_by_interval_surplus, 
+        citibike_bike_avail_426, 
+        by.x=c('interval.start.time'), 
+        by.y=c('timestamp'), all = TRUE)
+```
+
+```{r}
+citibike_station_426 <- citibike_station_426 %>%
+  dplyr::select(interval.start.time, surplus, "426") %>%
+  rename(bikes.avail="426")
+
+citibike_station_426
+```
+
+```{r}
+citibike_station_426[is.na(citibike_station_426)] <- 0
+citibike_station_426 <- head(citibike_station_426,-2)
+citibike_station_426
+```
+
+```{r}
+citibike_bike_avail <- citibike_bike_avail %>%
+  dplyr::select(-V1)
+```
+
+```{r}
+citibike_bike_avail
+```
+
+```{r}
+citibike_bike_avail_long <- citibike_bike_avail %>%
+  pivot_longer(!timestamp, names_to = "station.id", values_to = "bikes.avail")
+
+citibike_bike_avail_long
+```
+
+```{r}
+citibike_bike_avail_long_trim <- citibike_bike_avail_long %>%
+  filter(as.integer(station.id) == 3582)
+```
+
+```{r}
+p<-ggplot(citibike_bike_avail_long_trim, aes(x=timestamp, y=bikes.avail, group=station.id)) +
+  geom_line(aes(color=station.id))+
+  geom_point(aes(color=station.id))
+p
+```
+
+The above shows there is rebalancing at this station but it's not consistent.
+
+```{r}
+citibike_bike_avail_long_trim
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
