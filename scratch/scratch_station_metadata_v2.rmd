@@ -336,11 +336,7 @@ plot(test$bikes.avail.count[test$bikes.avail.count!=0],type = "b",col="red")
 lines(round(pred),col="blue")
 ```
 
-```{r}
-pred <- predict.glm(mod1, newdata=test,type = "response")
-plot(test$bikes.avail.count,type = "b",col="red")
-lines(round(pred),col="blue")
-```
+
 
 ```{r}
 library(Metrics)

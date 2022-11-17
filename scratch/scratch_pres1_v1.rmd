@@ -1,0 +1,187 @@
+---
+title: "DATA 698 Project v1"
+subtitle: "Predicting Citi Bike Availability in NYC"
+author: "Philip Tanofsky"
+date: "`r Sys.Date()`"
+output:
+  beamer_presentation:
+    toc: true
+    theme: "Boadilla"
+    colortheme: "default"
+    fonttheme: "structurebold"
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Problem and Objective 
+
+Introduce yourselves and describe your problem.
+Explain your objectives, challenges of your work, proposed methodologies, and the assumptions you made while conducting modeling and/or analysis.
+Provide an overview of your approach and/or conceptual model (please do not present your code directly). 
+Describe the results you obtain and summarize the current achievements and possibility of future works.
+
+## Challenges and Assumptions
+
+- Too much data
+  - Over 3.5 million trips in month of Sept. 2022
+- Rebalancing identification
+- User friendly approach
+  - Inputs to output
+
+## Proposed Methodologies
+
+- Inputs
+  - Latitude and longitude
+  - Day of the Week
+  - Time of Day
+  - Number of Bikes 
+- Citi Bike offers live map of availability
+- Lyft provides real-time availability
+
+- Time series model
+- Poisson distribution and Negative Binomial given the over-dispersion
+
+## Overview of Approach
+
+- Data from API call every 15 minutes for two weeks
+  - Citi bike availability at each station
+  - Two weeks is small interval to predict
+    - Valid limitation of model
+
+## EDA 1
+
+```{r libraries, echo=F, message=F, warning=F, include=F}
+# Required packages
+library(tidyverse)
+library(ggplot2)
+library(skimr)
+library(lubridate)
+library(fpp3)
+library(assertthat)
+library(igraph)
+library(ggraph)
+library(ggmap)
+library(leaflet)
+library(rgdal)
+library(RColorBrewer)
+library(jpeg)
+library(data.table)
+```
+
+```{r read.trip.data, echo=F, message=F, warning=F, include=F, eval=T}
+# Create additional columns of pertinence
+# weekday, day of the month, trip duration in minutes, start hour
+citibike <- fread("data/202209-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE) %>%
+#citibike <- read.csv("data/202209-citibike-tripdata.csv", check.names=TRUE) %>%
+  mutate(day = factor(mday(ymd_hms(started_at))),
+         start.hour=factor(hour(ymd_hms(started_at))),
+         weekday = lubridate::wday(ymd_hms(started_at), label=TRUE, abbr=TRUE),
+         trip.duration = as.numeric(difftime(ended_at,started_at,units="mins")),
+         member_casual = factor(member_casual)) %>%
+  rename(ride.id=ride_id, rideable.type=rideable_type, started.at=started_at,
+         ended.at=ended_at, start.station.name=start_station_name, start.station.id=start_station_id,
+         end.station.name=end_station_name, end.station.id=end_station_id, start.lat=start_lat,
+         start.lng=start_lng, end.lat=end_lat, end.lng=end_lng, member.casual=member_casual)
+
+# Figure out abandoned and label them
+citibike$end.station.name[citibike$end.station.name == ''] <- "Abandoned"
+citibike$end.station.id[citibike$end.station.id  == ''] <- "ABAN"
+
+# Output DF if needed
+head(citibike)
+```
+
+```{r trip.by.hour.time.series, echo=F, message=F, warning=F, include=T}
+
+citibike$started.at.ts <- as_datetime(as.character(citibike$started.at))
+
+citibike_by_hour <- citibike %>%
+  mutate(hour=lubridate::floor_date(started.at.ts, "1 hour")) %>%
+  group_by(hour, member.casual) %>%
+  summarize(cnt=n())
+#citibike_by_hour
+
+citibike_by_hour_ts <- citibike_by_hour %>%
+  as_tsibble(index=hour, key=c(member.casual))
+#citibike_by_hour_ts
+
+autoplot(citibike_by_hour_ts, cnt) +
+  labs(title = "Ride Trips by Hour - Sept. 2022",
+       subtitle = "Citi Bike NYC",
+       y = "Ride Trips Counts")
+```
+
+## EDA 2
+
+```{r trip.by.hour.seasonal, echo=F, message=F, warning=F, include=T}
+citibike_by_hour_ts %>%
+  gg_season(cnt, period = "week") +
+  labs(y = "Ride Trips",
+       title = "Seasonal plot: Weekly Trip Counts for Sept. 2022")
+```
+
+## EDA 3
+
+```{r display.surplus.by.station, echo=F, message=F, warning=F, include=T}
+img <- readJPEG("stations_surplus_sum.jpg")
+plot(1:10,ty="n", axes = 0, xlab='', ylab='', main='Overall Monthly Surplus by Docking Station')
+rasterImage(img,-1,-1,12,12)
+```
+
+## focus on Crown Heights
+
+```{r}
+
+```
+
+## Conceptual Model: Step 1
+
+Clustering
+
+## Conceptual Model: Step 2
+
+Modeling
+
+## Model Results
+
+- Results table
+
+## Slide 10
+
+```{r}
+
+```
+
+## Current Achievements
+
+- Clustering
+- Model prediction
+
+
+## Slide 12
+
+```{r}
+
+```
+
+## Future Works
+
+- Weather ... actually, can I predict weather? would that really work?
+- Subway stations: Citi Bike offers valet 
+- Model of all NYC
+- Real-time clustering would be better
+
+## Slide 14
+
+```{r}
+
+```
+
+## Slide 15
+
+```{r}
+
+```

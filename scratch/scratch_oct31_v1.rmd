@@ -22,13 +22,13 @@ library(jsonlite)
 #library(leaflet)
 #library(rgdal)
 #library(RColorBrewer)
-#library(data.table)
+library(data.table)
 ```
 
 ```{r}
 # Create additional columns of pertinence
 # weekday, day of the month, trip duration in minutes, start hour
-citibike <- fread("data/202210-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE) %>%
+citibike_202210 <- fread("data/202210-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE) %>%
   mutate(day = factor(mday(ymd_hms(started_at))),
          start.hour=factor(hour(ymd_hms(started_at))),
          weekday = lubridate::wday(ymd_hms(started_at), label=TRUE, abbr=TRUE),
@@ -41,21 +41,21 @@ citibike <- fread("data/202210-citibike-tripdata.csv", data.table=FALSE, check.n
 
 
 # Figure out abandoned and label them
-citibike$end.station.name[citibike$end.station.name == ''] <- "Abandoned"
-citibike$end.station.id[citibike$end.station.id  == ''] <- "ABAN"
+citibike_202210$end.station.name[citibike_202210$end.station.name == ''] <- "Abandoned"
+citibike_202210$end.station.id[citibike_202210$end.station.id  == ''] <- "ABAN"
 
 # Output DF if needed
-head(citibike)
+head(citibike_202210)
 ```
 
 ```{r}
-citibike_oct31 <- citibike %>%
+citibike_oct31 <- citibike_202210 %>%
   filter(started.at >= '2022-10-30 20:00:00') # Minus 4 hours to get midnight of Oct. 31
 ```
 
 ```{r}
 citibike_oct31 <- citibike_oct31[order(citibike_oct31$started.at),]
-citibike_oct31
+head(citibike_oct31)
 ```
 
 ```{r}
