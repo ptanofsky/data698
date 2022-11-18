@@ -16,7 +16,6 @@ library(skimr)
 library(lubridate)
 library(jsonlite)
 library(MASS)
-#library(fpp3)
 #library(assertthat)
 #library(igraph)
 #library(ggraph)
@@ -132,9 +131,15 @@ stations_attrs_trim_bk61
 1700 / 733 is 2.32, so ~2 docking stations per cluster
 
 ```{r}
-# Predict with time series
-# Poisson
-# Negative Binomial
+# Predict with specific lat long
+# https://stackoverflow.com/questions/27321856/closest-point-to-a-path
+library(RANN)
+#40.67355733701634, -73.96085900000001
+# Lon, Lat of location
+location <- data.frame(matrix(nrow = 1,data = c(-73.960859, 40.67355)))
+closest_station <- nn2(stations_attrs_trim_bk61[, 9:10], query=location, k=1)
+inp_cluster <- stations_attrs_trim_bk61[closest_station$nn.idx,]$cluster
+inp_cluster
 ```
 
 ```{r}
@@ -248,6 +253,32 @@ pchisq(2 * (logLik(m1) - logLik(m3)), df = 1, lower.tail = FALSE)
 stations_bike_avail_by_time_no_na_group$cluster <- as.factor(stations_bike_avail_by_time_no_na_group$cluster)
 stations_bike_avail_by_time_no_na_group$time <- as.factor(stations_bike_avail_by_time_no_na_group$time)
 stations_bike_avail_by_time_no_na_group$weekday <- as.factor(stations_bike_avail_by_time_no_na_group$weekday)
+
+stations_bike_avail_by_time_no_na_group$time <- factor(stations_bike_avail_by_time_no_na_group$time, 
+                       levels = c("00:00:00", "00:15:00", "00:30:00", "00:45:00",
+                                  "01:00:00", "01:15:00", "01:30:00", "01:45:00",
+                                  "02:00:00", "02:15:00", "02:30:00", "02:45:00",
+                                  "03:00:00", "03:15:00", "03:30:00", "03:45:00",
+                                  "04:00:00", "04:15:00", "04:30:00", "04:45:00",
+                                  "05:00:00", "05:15:00", "05:30:00", "05:45:00",
+                                  "06:00:00", "06:15:00", "06:30:00", "06:45:00",
+                                  "07:00:00", "07:15:00", "07:30:00", "07:45:00",
+                                  "08:00:00", "08:15:00", "08:30:00", "08:45:00",
+                                  "09:00:00", "09:15:00", "09:30:00", "09:45:00",
+                                  "10:00:00", "10:15:00", "10:30:00", "10:45:00",
+                                  "11:00:00", "11:15:00", "11:30:00", "11:45:00",
+                                  "12:00:00", "12:15:00", "12:30:00", "12:45:00",
+                                  "13:00:00", "13:15:00", "13:30:00", "13:45:00",
+                                  "14:00:00", "14:15:00", "14:30:00", "14:45:00",
+                                  "15:00:00", "15:15:00", "15:30:00", "15:45:00",
+                                  "16:00:00", "16:15:00", "16:30:00", "16:45:00",
+                                  "17:00:00", "17:15:00", "17:30:00", "17:45:00",
+                                  "18:00:00", "18:15:00", "18:30:00", "18:45:00",
+                                  "19:00:00", "19:15:00", "19:30:00", "19:45:00",
+                                  "20:00:00", "20:15:00", "20:30:00", "20:45:00",
+                                  "21:00:00", "21:15:00", "21:30:00", "21:45:00",
+                                  "22:00:00", "22:15:00", "22:30:00", "22:45:00",
+                                  "23:00:00", "23:15:00", "23:30:00", "23:45:00"))
 ```
 
 ```{r}
@@ -293,8 +324,15 @@ test <- stations_bike_avail_by_time_no_timestamp[index==2,]
 ```
 
 ```{r}
-train_2 <- train %>%
-  filter(cluster %in% c("1", "2", "3", "4"))
+# Sample Variance is 313
+var(stations_bike_avail_by_time_no_timestamp$bikes.avail.count)
+n <- length(stations_bike_avail_by_time_no_timestamp)
+# Population variance
+var(stations_bike_avail_by_time_no_timestamp$bikes.avail.count)*(n-1)/n
+# Mean is 13
+mean(stations_bike_avail_by_time_no_timestamp$bikes.avail.count)
+
+# Overdispersion exists
 ```
 
 ```{r}
@@ -302,12 +340,14 @@ train
 ```
 
 ```{r}
-skim(train_2)
+
 ```
 
 ```{r}
 
 ```
+
+Poisson Model: Generalized linear model to model count data, assumption that variance is equal to the mean
 
 ```{r}
 mod1 <- glm(bikes.avail.count ~ cluster + time + weekday, data = train, family ="poisson")
@@ -323,7 +363,11 @@ glance(mod1)
 ```{r}
 library(AER)
 dispersiontest(mod1)
+# This indicates dispersion
 ```
+
+Quasi-Poisson Model: Generalized linear model to model count data, for overdispersed count variable
+Variance is a linear function of the mean
 
 ```{r}
 mod2 <- glm(bikes.avail.count ~ cluster + time + weekday, data = train, family ="quasipoisson")
@@ -364,6 +408,9 @@ rmsemodelqp
 maemodelqp
 ```
 
+Negative Binomial: Variance greater than the mean
+Variance is a quadratic function of the mean
+
 ```{r}
 mod3 <- glm.nb(bikes.avail.count ~ cluster + time + weekday, data=train)
 summary(mod3)
@@ -382,6 +429,10 @@ maemodelnb <- mae(test$bikes.avail.count,round(prednb))
 rmsemodelnb
 maemodelnb
 ```
+
+Hurdle Poisson
+
+Two parts: Probability of attaining value of 0, and second part models probability of a non-zero value
 
 ```{r}
 library(pscl)
@@ -403,6 +454,8 @@ rmsemodelhp
 maemodelhp
 ```
 
+Hurdle Negative Binomial
+
 ```{r}
 modelhnb <- hurdle(bikes.avail.count ~ cluster + time + weekday, data=train, dist = "negbin")
 summary(modelhnb)
@@ -421,6 +474,8 @@ maemodelhnb<-mae(test$bikes.avail.count,round(predhnb))
 rmsemodelhnb
 maemodelhnb
 ```
+
+Zero Inflated Model: Distribution that allows for frequent zero-values observations
 
 ```{r}
 modelzp <- zeroinfl(bikes.avail.count ~ cluster + time + weekday, data=train, dist = "poisson")
@@ -448,6 +503,7 @@ rmsemodelznb
 maemodelznb
 ```
 
+
 ```{r}
 rmse<-c(rmsemodelp,rmsemodelqp,rmsemodelnb,rmsemodelhp,rmsemodelhnb,
            rmsemodelzp,rmsemodelznb)
@@ -459,48 +515,44 @@ data.frame(models,rmse,mae)%>%
 ```
 
 ```{r}
-library(fpp3)
-```
+# inp_cluster
+bike_avail_query <- data.frame(matrix(nrow = 1,data = c(inp_cluster, 0, "07:30:00", "Mon")))
+colnames(bike_avail_query) <- c("cluster", "bikes.avail.count", "time", "weekday")
 
-```{r}
-library(forecast)
-stations_data <- stations_bike_avail_by_time_no_na_group %>%
-  filter(cluster == "1") %>%
-  dplyr::select(timestamp, bikes.avail.count)
-
-citibike_ts <- stations_data %>%
-  mutate(timestamp = as_datetime(timestamp)) %>%
-  as_tsibble(index=timestamp)
-
-citibike_ts_miss <- citibike_ts %>%
-  fill_gaps()
-
-citibike_ts_fill <- citibike_ts_miss %>%
-  # Fit ARIMA model to the data containing missing values
-  model(ARIMA(bikes.avail.count)) %>%
-  # Estimate Trips for all periods
-  interpolate(citibike_ts_miss)
+single_pred <- predict.glm(mod1, newdata = bike_avail_query, type = "response")
+as.integer(floor(single_pred))
 
 ```
 
-#citibike_ts2 <- na.interp(citibike_ts)
-
-# I think it doesn't like that my time is every 15 minutes instead of every minute
-
-fit <- citibike_ts2 %>%
-  model(ARIMA(bikes.avail.count))
-report(fit)
-
-
 ```{r}
-report(fit)
+predict_num_bikes_avail <- function(longitude, latitude, time, day) {
+  #longitude: -73.960859
+  #latitude: 40.67355
+  #time: "07:30:00"
+  #day: "Mon"
+  
+  num_bikes_avail <- 0
+  
+  # Convert lon/lat to cluster
+  location <- data.frame(matrix(nrow = 1,data = c(longitude, latitude)))
+  closest_station <- nn2(stations_attrs_trim_bk61[, 9:10], query=location, k=1)
+  inp_cluster <- stations_attrs_trim_bk61[closest_station$nn.idx,]$cluster
+
+  # Create input for prediction
+  bike_avail_query <- data.frame(matrix(nrow = 1,data = c(inp_cluster, 0, time, day)))
+  colnames(bike_avail_query) <- c("cluster", "bikes.avail.count", "time", "weekday")
+
+  # Predict using Model: mod1
+  num_bikes_avail <- predict.glm(mod1, newdata = bike_avail_query, type = "response")
+  # Take floor of prediction to ensure whole number
+  num_bikes_avail <- as.integer(floor(num_bikes_avail))
+  
+  return(num_bikes_avail)
+}
 ```
 
 ```{r}
-autoplot(citibike_ts, bikes.avail.count) +
-  labs(title = "Ansett airlines economy class",
-       subtitle = "Melbourne-Sydney",
-       y = "Passengers ('000)")
+predict_num_bikes_avail(-73.960859, 40.67355, "00:30:00", "Tue")
 ```
 
 ```{r}
@@ -628,14 +680,15 @@ autoplot(citibike_ts, bikes.avail.count) +
 ```
 
 ```{r}
-stations_bike_avail_by_time_no_na_group
+tab_df <- as.data.frame(tab)
+
+# Distrubtion of count results
+p<-ggplot(data=tab_df, aes(x=Var1, y=Freq)) +
+  geom_bar(stat="identity")
+p
 ```
 
-
 ```{r}
-# from here
-#https://www.r-bloggers.com/2021/04/random-forest-in-r/
-#library(randomForest) 
-#library(caret)
+
 ```
 

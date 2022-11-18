@@ -518,7 +518,7 @@ stations_bike_avail_by_time_no_timestamp <- subset(stations_bike_avail_by_time_n
 ```
 
 ```{r}
-stations_bike_avail_by_time_no_timestamp
+#stations_bike_avail_by_time_no_timestamp
 ```
 
 ```{r}
