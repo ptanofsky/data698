@@ -22,6 +22,15 @@ Explain your objectives, challenges of your work, proposed methodologies, and th
 Provide an overview of your approach and/or conceptual model (please do not present your code directly). 
 Describe the results you obtain and summarize the current achievements and possibility of future works.
 
+v2 is started at 1:30P on Sat, Nov 19
+
+## Previous Work (+1)
+
+- bullet 1
+- bullet 2
+- bullet 3
+- bullet 4
+
 ## Challenges and Assumptions (2)
 
 - Too much data
@@ -60,8 +69,12 @@ library(data.table)
 ```{r read.trip.data, echo=F, message=F, warning=F, include=F, eval=T}
 # Create additional columns of pertinence
 # weekday, day of the month, trip duration in minutes, start hour
-citibike <- fread("data/202209-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE) %>%
+citibike_202208 <- fread("data/202208-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
+citibike_202209 <- fread("data/202209-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
+citibike_202210 <- fread("data/202210-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
 #citibike <- read.csv("data/202209-citibike-tripdata.csv", check.names=TRUE) %>%
+
+citibike <- bind_rows(citibike_202208, citibike_202209, citibike_202210) %>%
   mutate(day = factor(mday(ymd_hms(started_at))),
          start.hour=factor(hour(ymd_hms(started_at))),
          weekday = lubridate::wday(ymd_hms(started_at), label=TRUE, abbr=TRUE),
@@ -80,7 +93,13 @@ citibike$end.station.id[citibike$end.station.id  == ''] <- "ABAN"
 head(citibike)
 ```
 
-```{r trip.by.hour.time.series, echo=F, message=F, warning=F, include=T}
+```{r}
+head(citibike)
+```
+
+10,210,102 trips for Aug-Oct (3 months of 2022)
+
+```{r trip.by.hour.time.series, echo=T, message=F, warning=F, include=T}
 
 citibike$started.at.ts <- as_datetime(as.character(citibike$started.at))
 
@@ -102,7 +121,7 @@ autoplot(citibike_by_hour_ts, cnt) +
 
 ## EDA 2 (6)
 
-```{r trip.by.hour.seasonal, echo=F, message=F, warning=F, include=T}
+```{r trip.by.hour.seasonal, echo=T, message=F, warning=F, include=T}
 citibike_by_hour_ts %>%
   gg_season(cnt, period = "week") +
   labs(y = "Ride Trips",
@@ -111,7 +130,7 @@ citibike_by_hour_ts %>%
 
 ## EDA 3 (7)
 
-```{r display.surplus.by.station, echo=F, message=F, warning=F, include=T}
+```{r display.surplus.by.station, echo=T, message=F, warning=F, include=T}
 img <- readJPEG("stations_surplus_sum.jpg")
 plot(1:10,ty="n", axes = 0, xlab='', ylab='', main='Overall Monthly Surplus by Docking Station')
 rasterImage(img,-1,-1,12,12)
@@ -119,6 +138,7 @@ rasterImage(img,-1,-1,12,12)
 
 ## EDA 4 (8)
 
+Elevation or Network Graph
 
 
 ## focus on Brooklyn Areas (9)
@@ -143,60 +163,78 @@ rasterImage(img,-1,-1,12,12)
  
 - Data from API call every 15 minutes for two weeks
   - Citi bike availability at each station
-  - Two weeks is small interval to predict
+  - Three weeks is small interval to predict
     - Valid limitation of model
 
 ## Conceptual Model: Step 1 (12)
 
 Clustering
 
+- NTAs used: <list>
+
+- Docking Stations: Count
+
+- Clusters: Count
+
+- Map of Clusters by Color
+
 ## Conceptual Model: Step 2 (13)
 
-Modeling
+Model Approaches
 
-## Model Results 1 (14)
+- 6 models attempted
+
+## Conceptual Model: Step 2.1 (14)
+
+- Plot of the availability by intervals to show the distribution
+
+  - Mostly zero as the available number
+
+## Model Results 1 (15)
 
 - Certain input to model based on 3-hour intervals
 - Results table
 
 
-## Model Results 2 (15)
+## Model Results 2 (16)
 
 - Certain input to model based on 15-minute intervals
 - Results table
 
-## Model Results Visual (16)
+## Model Results Visual (17)
+
+- Plot of the preds and actuals for best scoring model
 
 ```{r}
 
 ```
 
-## Prediction Function 17
+## Prediction Function (18)
 
-- Clustering
 - Model prediction
+  - Show how it works
 
 
-## Current Achievements 18
+## Current Achievements (19)
 
 ```{r}
 
 ```
 
-## Future Works 19
+## Future Works (20)
 
 - Weather ... actually, can I predict weather? would that really work?
 - Subway stations: Citi Bike offers valet 
 - Model of all NYC
 - Real-time clustering would be better
 
-## Slide 20
+## Slide (21)
 
 ```{r}
 
 ```
 
-## Slide 21
+## Slide (22)
 
 ```{r}
 

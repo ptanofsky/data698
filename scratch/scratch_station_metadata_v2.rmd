@@ -68,12 +68,15 @@ head(stations_attrs_trim)
 ```
 
 ```{r}
-stations_attrs_trim_bk61 <- stations_attrs_trim %>%
-  filter(nta.name == "Crown Heights North")
-
-(stations_attrs_trim_bk61)
+stations_attrs_trim_bk <- stations_attrs_trim %>%
+#stations_attrs_trim_bk61 <- stations_attrs_trim %>%
+  #filter(nta.name == "Crown Heights North")
+  filter(boro.name == "Brooklyn")
+(stations_attrs_trim_bk)
 #11 stations in this file
 ```
+
+474 stations in brooklyn
 
 ```{r}
 stations_with_bike_avail <- read.csv('bike_avail_by_station_and_time.csv', row.names = 1, header= TRUE, check.names = FALSE)
@@ -103,7 +106,7 @@ library(geosphere)
 
 # Distance matrix for docking stations
 # Result is in meters
-dist_mat <- distm(stations_attrs_trim_bk61[9:10], stations_attrs_trim_bk61[9:10], fun=distHaversine)
+dist_mat <- distm(stations_attrs_trim_bk[9:10], stations_attrs_trim_bk[9:10], fun=distHaversine)
 dist_mat <- as.data.frame(dist_mat)
 ```
 
@@ -121,12 +124,14 @@ dMat[1:10]
 # Now for the clustering
 hier_clust <- hclust(dMat, method = "complete")
 # 400 meters is about a quarter of a mile (0.248548 miles)
-stations_attrs_trim_bk61$cluster <- cutree(hier_clust, h=400)
+stations_attrs_trim_bk$cluster <- cutree(hier_clust, h=400)
 ```
 
 ```{r}
-stations_attrs_trim_bk61
+head(stations_attrs_trim_bk)
 ```
+
+213 clusters of 474 stations
 
 1700 / 733 is 2.32, so ~2 docking stations per cluster
 
@@ -165,7 +170,7 @@ stations_with_bike_avail_long <- stations_with_bike_avail %>%
 Pivot longer results in 2418743 rows
 
 ```{r}
-station_to_cluster <- stations_attrs_trim_bk61 %>%
+station_to_cluster <- stations_attrs_trim_bk %>%
   dplyr::select(station.id, cluster)
 
 (station_to_cluster)
@@ -217,7 +222,7 @@ stations_bike_avail_by_time_no_na_group
 ```
 
 ```{r}
-# mutate to conver timestamp into day of the week, etc.
+# mutate to convert timestamp into day of the week, etc.
 stations_bike_avail_by_time_no_na_group <- stations_bike_avail_by_time_no_na_group %>%
   mutate(time=as.ITime(ymd_hms(timestamp)),
          weekday = lubridate::wday(ymd_hms(timestamp),label=TRUE,abbr=TRUE))
@@ -279,9 +284,7 @@ stations_bike_avail_by_time_no_na_group$time <- factor(stations_bike_avail_by_ti
                                   "21:00:00", "21:15:00", "21:30:00", "21:45:00",
                                   "22:00:00", "22:15:00", "22:30:00", "22:45:00",
                                   "23:00:00", "23:15:00", "23:30:00", "23:45:00"))
-```
 
-```{r}
 stations_bike_avail_by_time_no_na_group
 ```
 
@@ -339,13 +342,6 @@ mean(stations_bike_avail_by_time_no_timestamp$bikes.avail.count)
 train
 ```
 
-```{r}
-
-```
-
-```{r}
-
-```
 
 Poisson Model: Generalized linear model to model count data, assumption that variance is equal to the mean
 
@@ -387,12 +383,10 @@ library(Metrics)
 pred <- predict.glm(mod1, newdata = test, type = "response")
 rmsemodelp <- ModelMetrics::rmse(test$bikes.avail.count,round(pred))
 maemodelp <- mae(test$bikes.avail.count,round(pred))
-```
-
-```{r}
 rmsemodelp
 maemodelp
 ```
+
 
 ```{r}
 predq <- predict.glm(mod2, newdata=test[test$bikes.avail.count != 0,],type = "response")
@@ -531,13 +525,13 @@ predict_num_bikes_avail <- function(longitude, latitude, time, day) {
   #time: "07:30:00"
   #day: "Mon"
   
-  num_bikes_avail <- 0
-  
   # Convert lon/lat to cluster
   location <- data.frame(matrix(nrow = 1,data = c(longitude, latitude)))
-  closest_station <- nn2(stations_attrs_trim_bk61[, 9:10], query=location, k=1)
-  inp_cluster <- stations_attrs_trim_bk61[closest_station$nn.idx,]$cluster
+  closest_station <- nn2(stations_attrs_trim_bk[, 9:10], query=location, k=1)
+  inp_cluster <- stations_attrs_trim_bk[closest_station$nn.idx,]$cluster
 
+  print(inp_cluster)
+  
   # Create input for prediction
   bike_avail_query <- data.frame(matrix(nrow = 1,data = c(inp_cluster, 0, time, day)))
   colnames(bike_avail_query) <- c("cluster", "bikes.avail.count", "time", "weekday")
@@ -552,7 +546,250 @@ predict_num_bikes_avail <- function(longitude, latitude, time, day) {
 ```
 
 ```{r}
-predict_num_bikes_avail(-73.960859, 40.67355, "00:30:00", "Tue")
+predict_num_bikes_avail(-73.960859, 40.67355, "08:30:00", "Sat")
+```
+
+# Attempting by hour instead of 15-minute interval
+
+```{r}
+citibike_by_end.interval_1H <- stations_bike_avail_by_time_no_na_group %>%
+  mutate(interval=lubridate::floor_date(as.POSIXct(timestamp), "1 hour")) %>%
+  group_by(cluster, interval) %>%
+  summarize(sum(bikes.avail.count))
+
+```
+
+```{r}
+stations_bike_avail_by_time_no_na_group
+```
+
+```{r}
+
+```
+
+```{r}
+stations_bike_avail_by_time_1H <- stations_bike_avail_by_time_no_timestamp %>%
+  filter(endsWith(as.character(time), "00:00"))
+```
+
+```{r}
+stations_bike_avail_by_time_1H
+```
+
+```{r}
+# Start with data partition here.
+set.seed(8675309)
+index <- sample(2, nrow(stations_bike_avail_by_time_1H), replace = TRUE, p=c(0.8, 0.2))
+train_1H <- stations_bike_avail_by_time_1H[index==1,]
+test_1H <- stations_bike_avail_by_time_1H[index==2,]
+```
+
+```{r}
+# Sample Variance is 313
+var(stations_bike_avail_by_time_1H$bikes.avail.count)
+n <- length(stations_bike_avail_by_time_1H)
+# Population variance
+var(stations_bike_avail_by_time_1H$bikes.avail.count)*(n-1)/n
+# Mean is 13
+mean(stations_bike_avail_by_time_1H$bikes.avail.count)
+
+# Overdispersion exists
+```
+
+```{r}
+
+```
+
+
+Poisson Model: Generalized linear model to model count data, assumption that variance is equal to the mean
+
+```{r}
+mod1 <- glm(bikes.avail.count ~ cluster + time + weekday, data = train_1H, family ="poisson")
+summary(mod1)
+```
+
+```{r}
+glance(mod1)
+```
+
+
+```{r}
+dispersiontest(mod1)
+# This indicates dispersion
+```
+
+Quasi-Poisson Model: Generalized linear model to model count data, for overdispersed count variable
+Variance is a linear function of the mean
+
+```{r}
+mod2 <- glm(bikes.avail.count ~ cluster + time + weekday, data = train_1H, family ="quasipoisson")
+summary(mod2)
+```
+
+```{r}
+pred <- predict.glm(mod1, newdata=test_1H[test_1H$bikes.avail.count != 0,],type = "response")
+plot(test_1H$bikes.avail.count[test_1H$bikes.avail.count!=0],type = "b",col="red")
+lines(round(pred),col="blue")
+```
+
+
+
+```{r}
+library(Metrics)
+pred <- predict.glm(mod1, newdata = test_1H, type = "response")
+rmsemodelp <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred))
+maemodelp <- mae(test_1H$bikes.avail.count,round(pred))
+rmsemodelp
+maemodelp
+```
+
+
+```{r}
+predq <- predict.glm(mod2, newdata=test_1H[test_1H$bikes.avail.count != 0,],type = "response")
+plot(test_1H$bikes.avail.count[test_1H$bikes.avail.count!=0],type = "b",col="red")
+lines(round(predq),col="blue")
+```
+
+```{r}
+predq <- predict.glm(mod2,newdata=test_1H, type = "response")
+rmsemodelqp <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(predq))
+maemodelqp <- mae(test_1H$bikes.avail.count,round(predq))
+rmsemodelqp
+maemodelqp
+```
+
+Negative Binomial: Variance greater than the mean
+Variance is a quadratic function of the mean
+
+```{r}
+mod3 <- glm.nb(bikes.avail.count ~ cluster + time + weekday, data=train_1H)
+summary(mod3)
+```
+
+```{r}
+prednb <- predict.glm(mod3,newdata=test_1H[test_1H$bikes.avail.count!=0,],type = "response")
+plot(test_1H$bikes.avail.count[test_1H$bikes.avail.count!=0],type = "b",col="red")
+lines(round(prednb),col="blue")
+```
+
+```{r}
+prednb <- predict.glm(mod3,newdata=test_1H,type = "response")
+rmsemodelnb <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(prednb))
+maemodelnb <- mae(test_1H$bikes.avail.count,round(prednb))
+rmsemodelnb
+maemodelnb
+```
+
+```{r}
+modelhp <- hurdle(bikes.avail.count ~ cluster + time + weekday, data=train_1H, dist = "poisson")
+summary(modelhp)
+```
+
+```{r}
+predhp <- predict(modelhp, newdata=test_1H[test_1H$bikes.avail.count!=0,],type = "response")
+plot(test_1H$bikes.avail.count[test_1H$bikes.avail.count!=0],type = "b",col="red")
+lines(round(predhp),col="blue")
+```
+
+```{r}
+predhp <- predict(modelhp, newdata=test_1H, type = "response")
+rmsemodelhp<-ModelMetrics::rmse(test_1H$bikes.avail.count,round(predhp))
+maemodelhp<-mae(test_1H$bikes.avail.count,round(predhp))
+rmsemodelhp
+maemodelhp
+```
+
+Hurdle Negative Binomial
+
+```{r}
+modelhnb <- hurdle(bikes.avail.count ~ cluster + time + weekday, data=train_1H, dist = "negbin")
+summary(modelhnb)
+```
+
+```{r}
+predhnb <- predict(modelhnb, newdata=test_1H[test_1H$bikes.avail.count!=0,],type = "response")
+plot(test_1H$bikes.avail.count[test_1H$bikes.avail.count!=0],type = "b",col="red")
+lines(round(predhnb),col="blue")
+```
+
+```{r}
+predhnb<- predict(modelhnb, newdata=test_1H,type = "response")
+rmsemodelhnb<-ModelMetrics::rmse(test_1H$bikes.avail.count,round(predhnb))
+maemodelhnb<-mae(test_1H$bikes.avail.count,round(predhnb))
+rmsemodelhnb
+maemodelhnb
+```
+
+Zero Inflated Model: Distribution that allows for frequent zero-values observations
+
+```{r}
+modelzp <- zeroinfl(bikes.avail.count ~ cluster + time + weekday, data=train_1H, dist = "poisson")
+summary(modelzp)
+```
+
+```{r}
+predzp<- predict(modelzp,newdata=test_1H,type = "response")
+rmsemodelzp<-ModelMetrics::rmse(test_1H$bikes.avail.count,round(predzp))
+maemodelzp<-mae(test_1H$bikes.avail.count,round(predzp))
+rmsemodelzp
+maemodelzp
+```
+
+```{r}
+modelznb <- zeroinfl(bikes.avail.count ~ cluster + time + weekday, data=train_1H,dist = "negbin")
+summary(modelznb)
+```
+
+```{r}
+predznb<- predict(modelznb,newdata=test_1H,type = "response")
+rmsemodelznb<-ModelMetrics::rmse(test_1H$bikes.avail.count,round(predznb))
+maemodelznb<-mae(test_1H$bikes.avail.count,round(predznb))
+rmsemodelznb
+maemodelznb
+```
+
+
+```{r}
+rmse<-c(rmsemodelp,rmsemodelqp,rmsemodelnb,rmsemodelhp,rmsemodelhnb,
+           rmsemodelzp,rmsemodelznb)
+mae<-c(maemodelp,maemodelqp,maemodelnb,maemodelhp,maemodelhnb,
+           maemodelzp,maemodelznb)
+models<-c("pois","q_pois","nb","h_pois","h_nb","zer_pois","zer_nb")
+data.frame(models,rmse,mae)%>% 
+  arrange(rmse)
+```
+
+# I want to plot the stations and color code by cluster
+
+stations_attrs_trim_bk
+
+```{r}
+library(pals)
+# Create color factor object
+cluster_color <- colorFactor(palette=polychrome(), domain=stations_attrs_trim_bk$cluster)
+
+# Using basemaps for NYC
+m <- leaflet(data=stations_attrs_trim_bk) %>% 
+  addTiles() %>%
+  addCircleMarkers(
+    ~lon, ~lat, 
+    popup=~as.character(cluster), 
+    label=~as.character(cluster), 
+    radius=.5,
+    color = ~cluster_color(cluster)
+  )
+
+
+# Display map
+m
+```
+
+```{r}
+stations_attrs_trim_bk
+```
+
+```{r}
+polychrome
 ```
 
 ```{r}
@@ -631,55 +868,7 @@ predict_num_bikes_avail(-73.960859, 40.67355, "00:30:00", "Tue")
 
 ```
 
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
+```{r eval=F}
 tab_df <- as.data.frame(tab)
 
 # Distrubtion of count results

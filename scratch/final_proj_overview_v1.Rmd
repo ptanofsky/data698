@@ -1,6 +1,6 @@
 ---
 title: "DATA 698 Final Research Project"
-subtitle: "Data Collection & Exploratory Analysis"
+subtitle: "Predicting Availability of Citi Bike Bicycles in New York City"
 author: "Philip Tanofsky"
 date: "`r Sys.Date()`"
 output:
@@ -8,6 +8,21 @@ output:
   html_document:
     df_print: paged
 ---
+
+# Introduction
+
+New York City offers a multitude of transit options including the subway, buses, rideshare, taxis, and since 2013 a bikeshare option known as Citi Bike. The privately owned bikeshare system boasts a total of 25,000 bicycles and over 1,500 stations in New York City, New York in parts of Manhattan, Brooklyn, Queens, and the Bronx along with stations in Jersey City and Hoboken in New Jersey. The bikeshare option provides a solution for the 'first-' and "last-mile" connectivity in urban areas for individuals wanting to access the subway or bus line without walking. Citi Bike offers real-time availability of bicycles through the Citi Bike app, but the availability of a bicycle at the starting location and availability of a docking station upon arrival is not guaranteed at any time. The availability of bicycles is dependent on the riders themselves and the rebalancing strategies of Citi Bike.
+
+The trip data publicly provided by Citi Bike on a monthly basis can be used to examine ridership patterns and directions of flow based on time, date, and type of user (subscriber or casual). This project will attempt to construct a model of the Citi Bike bikeshare system to predict the availability of one or more bicycles based on location and a future date and time. 
+
+
+## The Problem
+
+1. Determine the flow of bicycles throughout the Citi Bike system in New York City to identify neighborhoods with a surplus of bicycles or a dearth of bicycle availability.
+
+2. Identify system rebalancing and its impact on the level of availability at a given station or cluster.
+
+3. Determine the best model to accurately model the availability of bicycles based on day of the week, time of day, location, and number of bicycles needed?
 
 # Data Collection & Preprocessing
 
@@ -41,7 +56,7 @@ library(pscl)
 
 Citi Bike provides individual bike trip data on a monthly basis available at https://ride.citibikenyc.com/system-data. The September 2022 bike trip data for New York City was downloaded and unzipped. The dataset contains 13 variables for each bike trip originating at a NYC-based docking station. A note on the system data page indicates trips taken by staff to service or inspect the system have been removed from the dataset. Also, any trips below 60 seconds have also been omitted. With this preprocessing by the data maintainers, the remaining trips are considered to be valid bike trips.
 
-```{r read.trip.data, echo=F, message=F, warning=F, include=F, eval=T}
+```{r read.trip.data, echo=T, message=F, warning=F, include=F, eval=T}
 # Create additional columns of pertinence
 # weekday, day of the month, trip duration in minutes, start hour
 citibike <- fread("data/202209-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE) %>%
@@ -533,8 +548,11 @@ tab <- table(stations_bike_avail_by_time_no_na_group$bikes.avail.count)
 tab_df <- as.data.frame(tab)
 
 # Distrubtion of count results
-p<-ggplot(data=tab_df, aes(x=Var1, y=Freq)) +
-  geom_bar(stat="identity")
+p <- ggplot(data=tab_df, aes(x=Var1, y=Freq)) +
+  geom_bar(stat="identity")  +
+  labs(x='Count of Available Bikes',
+       y='Frequency',
+       title='Frequency of Available Bike Counts for Docking Stations (Oct. 31 - Nov. 13)')
 p
 
 stations_bike_avail_by_time_no_timestamp <- subset(stations_bike_avail_by_time_no_na_group, select=-c(timestamp))
@@ -573,7 +591,7 @@ The mean of the bikes available by cluster and time interval is 14.0 and the pop
 
 The Poisson model is a generalized linear model for count data with the assumption that the variance is equal to the mean.
 
-```{r pois.model, echo=F, message=F, warning=F, include=F}
+```{r pois.model, echo=F, message=F, warning=F, include=T}
 mod1 <- glm(bikes.avail.count ~ cluster + time + weekday, data = train, family ="poisson")
 summary(mod1)
 ```
@@ -593,11 +611,15 @@ dispersiontest(mod1)
 # This indicates dispersion
 ```
 
-Overdispersion explanation
+The overdispersion test indicates a dispersion greater than 5 in which true dispersion is defined as 1 or more.
 
 ```{r pois.model.predictions, echo=F, message=F, warning=F, include=T}
 pred <- predict.glm(mod1, newdata=test[test$bikes.avail.count != 0,],type = "response")
-plot(test$bikes.avail.count[test$bikes.avail.count!=0],type = "b",col="red")
+# ggplot
+plot(test$bikes.avail.count[test$bikes.avail.count!=0],type = "b",col="red", 
+     main="Bike Availability Predictions",
+     sub="Actual counts in Red; Predictions in Blue",
+     xlab="Index", ylab="Count of Available Bikes")
 lines(round(pred),col="blue")
 ```
 
@@ -650,7 +672,7 @@ rmsemodelnb
 maemodelnb
 ```
 
-#### Hurdle: Poisson
+#### Hurdle
 
 The Hurdle model is another model for count data consisting of two parts - the probability of attaining a value of zero and a second part to model probability of a non-zero value. The Hurdle models used in this research use a base of Poisson and Negative Binomial.
 
@@ -670,7 +692,6 @@ rmsemodelhp
 maemodelhp
 ```
 
-#### Hurdle: Negative Binomial
 
 ```{r hurdle.nb.model, echo=F, message=F, warning=F, include=F}
 modelhnb <- hurdle(bikes.avail.count ~ cluster + time + weekday, data=train, dist = "negbin")
@@ -689,9 +710,7 @@ maemodelhnb
 
 #### Zero-Inflated Model
 
-Zero-Inflated Model: Distribution that allows for frequent zero-values observations
-
-- Poisson
+A Zero-Inflated Model builds a model for a distribution that allows for frequent zero-values observations. The Zero-Inflated models used in this research use a base of Poisson and Negative Binomial.
 
 ```{r zero.inf.pois.model, echo=F, message=F, warning=F, include=F}
 modelzp <- zeroinfl(bikes.avail.count ~ cluster + time + weekday, data=train, dist = "poisson")
@@ -707,12 +726,6 @@ maemodelzp <- mae(test$bikes.avail.count,round(predzp))
 rmsemodelzp
 maemodelzp
 ```
-
-#### Zero-Inflated Model
-
-Zero-Inflated Model: Distribution that allows for frequent zero-values observations
-
-- Negative Binomial
 
 ```{r zero.inf.nb.model, echo=F, message=F, warning=F, include=F}
 modelznb <- zeroinfl(bikes.avail.count ~ cluster + time + weekday, data=train,dist = "negbin")
@@ -730,6 +743,8 @@ maemodelznb
 ```
 
 ### Model Results
+
+The count model results show the best predictive performance by measuring the Root-Mean-Square Error (RMSE) and Mean Absolute Error (MAE) as the Poisson and Quasi-Poisson models. Overall, the performance of the models falls in a small range with RMSE ranging in 8.68 to 9.42. These results show that the average distance of approximately 9 between the predicted values from the model and the values from the dataset.
 
 ```{r model.metrics.results, echo=F, message=F, warning=F, include=T}
 rmse <- c(rmsemodelp,rmsemodelqp,
@@ -750,6 +765,8 @@ data.frame(models,rmse,mae) %>%
 ```
 
 ### Prediction Proof of Concept
+
+To make the model functional, we created a function to predict the number of bikes available given a longitude and latitude, time of day, and day of the week. The longitude and latitude are translated into a cluster identifier based on a nearest neighbor search of the docking stations.
 
 ```{r predict.bike.count.func, echo=F, message=F, warning=F, include=F}
 # Function to predict number of available bikes given a longitude and latitude, day of the week, and time of day
@@ -780,14 +797,13 @@ predict_num_bikes_avail <- function(longitude, latitude, time, day) {
 }
 ```
 
-```{r predict.bike.count.func.test, echo=F, message=F, warning=F, include=T}
+The below example returns a predicted availability of 2 bikes at 2:30PM on Saturday within 400 meters from the corner of Classon Avenue and St. John's Place in Crown Heights Brooklyn.
+
+```{r predict.bike.count.func.test, echo=T, message=F, warning=F, include=T}
 # Test case for the function
-predict_num_bikes_avail(-73.960859, 40.67355, "00:30:00", "Tue")
+predict_num_bikes_avail(-73.960859, 40.67355, "14:30:00", "Sat")
 ```
 
-```{r}
-2+6
-```
 
 # Closing Remarks
 
