@@ -73,10 +73,11 @@ stations_attrs_trim_bk <- stations_attrs_trim %>%
   #filter(nta.name == "Crown Heights North")
   filter(boro.name == "Brooklyn")
 (stations_attrs_trim_bk)
-#11 stations in this file
+#11 stations in this file of just Crown Heights North
+# 474 stations in this file of all of Brooklyn
 ```
 
-474 stations in brooklyn
+474 stations in Brooklyn
 
 ```{r}
 stations_with_bike_avail <- read.csv('bike_avail_by_station_and_time.csv', row.names = 1, header= TRUE, check.names = FALSE)
@@ -148,7 +149,7 @@ inp_cluster
 ```
 
 ```{r}
-# Lat/long of 790 Classon 40.652256, -73.956582
+
 ```
 
 ```{r}
@@ -788,8 +789,164 @@ m
 stations_attrs_trim_bk
 ```
 
+# Goal is to figure out for the Brooklyn docking stations, where are the 0 availability most frequest and where are the rebalancing efforts occuring (both of these should be plotted)
+
+DATASETS needed:  Availability by hour and 
+
+station info with Lat long :: stations_attrs_trim (just BK: stations_attrs_trim_bk)
+
 ```{r}
-polychrome
+stations_attrs_trim_bk
+```
+
+```{r}
+stations_bike_avail_by_time_no_na
+```
+
+```{r}
+# mutate to convert timestamp into day of the week, etc.
+stations_bike_avail_by_time_no_na <- stations_bike_avail_by_time_no_na %>%
+  mutate(time=as.ITime(ymd_hms(timestamp)),
+         weekday = lubridate::wday(ymd_hms(timestamp),label=TRUE,abbr=TRUE))
+```
+
+```{r}
+```
+
+```{r}
+stations_bike_avail_by_time_no_na$cluster <- as.factor(stations_bike_avail_by_time_no_na$cluster)
+stations_bike_avail_by_time_no_na$time <- as.factor(stations_bike_avail_by_time_no_na$time)
+stations_bike_avail_by_time_no_na$weekday <- as.factor(stations_bike_avail_by_time_no_na$weekday)
+
+stations_bike_avail_by_time_no_na$time <- factor(stations_bike_avail_by_time_no_na$time, 
+                       levels = c("00:00:00", "00:15:00", "00:30:00", "00:45:00",
+                                  "01:00:00", "01:15:00", "01:30:00", "01:45:00",
+                                  "02:00:00", "02:15:00", "02:30:00", "02:45:00",
+                                  "03:00:00", "03:15:00", "03:30:00", "03:45:00",
+                                  "04:00:00", "04:15:00", "04:30:00", "04:45:00",
+                                  "05:00:00", "05:15:00", "05:30:00", "05:45:00",
+                                  "06:00:00", "06:15:00", "06:30:00", "06:45:00",
+                                  "07:00:00", "07:15:00", "07:30:00", "07:45:00",
+                                  "08:00:00", "08:15:00", "08:30:00", "08:45:00",
+                                  "09:00:00", "09:15:00", "09:30:00", "09:45:00",
+                                  "10:00:00", "10:15:00", "10:30:00", "10:45:00",
+                                  "11:00:00", "11:15:00", "11:30:00", "11:45:00",
+                                  "12:00:00", "12:15:00", "12:30:00", "12:45:00",
+                                  "13:00:00", "13:15:00", "13:30:00", "13:45:00",
+                                  "14:00:00", "14:15:00", "14:30:00", "14:45:00",
+                                  "15:00:00", "15:15:00", "15:30:00", "15:45:00",
+                                  "16:00:00", "16:15:00", "16:30:00", "16:45:00",
+                                  "17:00:00", "17:15:00", "17:30:00", "17:45:00",
+                                  "18:00:00", "18:15:00", "18:30:00", "18:45:00",
+                                  "19:00:00", "19:15:00", "19:30:00", "19:45:00",
+                                  "20:00:00", "20:15:00", "20:30:00", "20:45:00",
+                                  "21:00:00", "21:15:00", "21:30:00", "21:45:00",
+                                  "22:00:00", "22:15:00", "22:30:00", "22:45:00",
+                                  "23:00:00", "23:15:00", "23:30:00", "23:45:00"))
+
+stations_bike_avail_by_time_no_na
+```
+
+```{r}
+stations_bike_avail_by_time_no_na
+```
+
+```{r}
+stations_bike_avail_by_time_no_na_1H <- stations_bike_avail_by_time_no_na %>%
+  filter(endsWith(as.character(time), "00:00"))
+```
+
+```{r}
+stations_bike_avail_by_time_no_na_1H
+```
+
+```{r}
+bk_stations_bike_avail_by_time <- 
+  merge(stations_bike_avail_by_time_no_na_1H, 
+        stations_attrs_trim_bk, 
+        by.x=c('station.id'), 
+        by.y=c('station.id'), all.x = TRUE)
+```
+
+```{r}
+bk_stations_bike_avail_by_time <- bk_stations_bike_avail_by_time %>%
+  dplyr::select(station.id, bikes.avail.count, capacity, time, lon, lat, cluster=cluster.x)
+```
+
+```{r}
+bk_stations_bike_avail_by_time
+```
+
+```{r}
+stations_bike_avail_by_time_no_na_1H_availZero <- stations_bike_avail_by_time_no_na_1H %>%
+  filter(bikes.avail.count == 0)
+stations_bike_avail_by_time_no_na_1H_availZero
+```
+
+```{r}
+stations_bike_avail_by_time_no_na_1H_availZero_count <- stations_bike_avail_by_time_no_na_1H_availZero %>%
+  group_by(station.id) %>%
+  summarize(count=n())
+stations_bike_avail_by_time_no_na_1H_availZero_count
+```
+
+```{r}
+bk_stations_bike_availZero_counts <- 
+  merge(stations_bike_avail_by_time_no_na_1H_availZero_count, 
+        stations_attrs_trim_bk, 
+        by.x=c('station.id'), 
+        by.y=c('station.id'), all.x = TRUE)
+```
+
+```{r}
+bk_stations_bike_availZero_counts
+```
+
+```{r}
+bk_stations_bike_availZero_counts <- bk_stations_bike_availZero_counts %>%
+  dplyr::select(station.id, count, capacity, lon, lat, cluster)
+bk_stations_bike_availZero_counts
+```
+
+```{r}
+#define colorpalette for chart legend
+paletteBins <- c(0, 50, 100, 150, 200, 250, 300, 350, 500)
+colorPalette <- colorBin(palette = "Spectral", bins = paletteBins, reverse=TRUE)
+```
+
+```{r}
+
+# Using basemaps for NYC
+m_bk_zeroAvail <- leaflet(data=bk_stations_bike_availZero_counts) %>% 
+  addTiles() %>%
+  addCircleMarkers(
+    ~lon, ~lat, 
+    popup=~as.character(station.id), 
+    label=~as.character(station.id), 
+    radius=.5,
+    color = ~colorPalette(count),
+    fillColor = ~colorPalette(count),
+    fillOpacity = 1,
+  )
+
+
+# Display map
+m_bk_zeroAvail
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
 ```
 
 ```{r}
@@ -809,7 +966,6 @@ polychrome
 ```
 
 ```{r}
-
 ```
 
 ```{r}
@@ -817,63 +973,26 @@ polychrome
 ```
 
 ```{r}
-
+# Table of availability based on 1HR intervals
+tab_1H <- table(stations_bike_avail_by_time_1H$bikes.avail.count)
+tab_1H
 ```
 
 ```{r}
+# This plot shows the available bike count frequencies given 1HR intervals and Brooklyn station clusters for the 2 weeks. 0 is the most frequent count and filterd at 150, just to provide some sort of upper bound
 
-```
+# There appears to be a max around 22 or so as the distribution drops off just before 25, likely a result of docking station capacity
 
-```{r}
+tab_1H_df <- as.data.frame(tab_1H)
 
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r eval=F}
-tab_df <- as.data.frame(tab)
+tab_1H_df$Var1 <- as.integer(tab_1H_df$Var1)
 
 # Distrubtion of count results
-p<-ggplot(data=tab_df, aes(x=Var1, y=Freq)) +
+p <- tab_1H_df %>%
+  filter(Var1 < 150) %>%
+  ggplot(aes(x=Var1, y=Freq)) +
   geom_bar(stat="identity")
+# Display plot
 p
 ```
 

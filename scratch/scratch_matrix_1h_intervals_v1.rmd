@@ -215,21 +215,22 @@ citibikestation_avg_by_hour_lat_long
 ```
 
 ```{r}
+# Removed the NJ stations just to keep focus on NYC stations
 citibikestation_avg_by_hour_lat_long_5A <- citibikestation_avg_by_hour_lat_long %>%
-  filter(interval.start.ch == "05:00:00")
+  filter(interval.start.ch == "05:00:00" & !startsWith(station.id, "JC") & !startsWith(station.id, "HB"))
 citibikestation_avg_by_hour_lat_long_8A <- citibikestation_avg_by_hour_lat_long %>%
-  filter(interval.start.ch == "08:00:00")
+  filter(interval.start.ch == "08:00:00" & !startsWith(station.id, "JC") & !startsWith(station.id, "HB"))
 citibikestation_avg_by_hour_lat_long_11A <- citibikestation_avg_by_hour_lat_long %>%
-  filter(interval.start.ch == "11:00:00")
+  filter(interval.start.ch == "11:00:00" & !startsWith(station.id, "JC") & !startsWith(station.id, "HB"))
 ```
 
 ```{r}
 citibikestation_avg_by_hour_lat_long_2P <- citibikestation_avg_by_hour_lat_long %>%
-  filter(interval.start.ch == "14:00:00")
+  filter(interval.start.ch == "14:00:00" & !startsWith(station.id, "JC") & !startsWith(station.id, "HB"))
 citibikestation_avg_by_hour_lat_long_5P <- citibikestation_avg_by_hour_lat_long %>%
-  filter(interval.start.ch == "17:00:00")
+  filter(interval.start.ch == "17:00:00" & !startsWith(station.id, "JC") & !startsWith(station.id, "HB"))
 citibikestation_avg_by_hour_lat_long_8P <- citibikestation_avg_by_hour_lat_long %>%
-  filter(interval.start.ch == "20:00:00")
+  filter(interval.start.ch == "20:00:00" & !startsWith(station.id, "JC") & !startsWith(station.id, "HB"))
 ```
 
 ```{r}
