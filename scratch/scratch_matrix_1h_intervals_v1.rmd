@@ -1,0 +1,487 @@
+---
+title: "Matrix of Start Stop by 15 minute intervals"
+author: "Philip Tanofsky"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# GOAL IS TO CREATE A MATRIX OF THE STARTS/ENDS FOR 15 MINUTE INTERVALS FOR EACH STATION
+
+```{r}
+# Required packages
+library(tidyverse)
+#library(ggplot2)
+#library(skimr)
+#library(tidyjson)
+#library(geosphere)
+library(lubridate)
+# library(ggmap)
+#library(forcats)
+#library(scales)
+```
+
+```{r}
+# Create additional columns of pertinence
+# weekday, day of the month, trip duration in minutes, start hour
+citibike_202208 <- fread("data/202208-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
+citibike_202209 <- fread("data/202209-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
+citibike_202210 <- fread("data/202210-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
+#citibike <- read.csv("data/202209-citibike-tripdata.csv", check.names=TRUE) %>%
+
+citibike <- bind_rows(citibike_202208, citibike_202209, citibike_202210) %>%
+  mutate(day = factor(mday(ymd_hms(started_at))),
+         start.hour=factor(hour(ymd_hms(started_at))),
+         weekday = lubridate::wday(ymd_hms(started_at), label=TRUE, abbr=TRUE),
+         trip.duration = as.numeric(difftime(ended_at,started_at,units="mins")),
+         member_casual = factor(member_casual)) %>%
+  rename(ride.id=ride_id, rideable.type=rideable_type, started.at=started_at,
+         ended.at=ended_at, start.station.name=start_station_name, start.station.id=start_station_id,
+         end.station.name=end_station_name, end.station.id=end_station_id, start.lat=start_lat,
+         start.lng=start_lng, end.lat=end_lat, end.lng=end_lng, member.casual=member_casual)
+
+# Figure out abandoned and label them
+citibike$end.station.name[citibike$end.station.name == ''] <- "Abandoned"
+citibike$end.station.id[citibike$end.station.id  == ''] <- "ABAN"
+
+# Output DF if needed
+head(citibike)
+```
+
+
+
+```{r}
+nrow(citibike)
+```
+
+
+```{r}
+citibike_wed <- citibike %>%
+  filter(weekday == "Wed" & start.station.id != "")
+```
+
+```{r}
+nrow(citibike_wed)
+```
+
+```{r}
+# And now for grouping by 15 minutes
+
+citibike_by_start.interval <- citibike_wed %>%
+  mutate(start.interval=lubridate::floor_date(started.at, "1 hour")) %>%
+  group_by(start.station.id, start.interval) %>%
+  summarize(start.count=n())
+
+citibike_by_start.interval
+```
+
+```{r}
+citibike_by_end.interval <- citibike_wed %>%
+  mutate(end.interval=lubridate::floor_date(ended.at, "1 hour")) %>%
+  group_by(end.station.id, end.interval) %>%
+  summarize(count=n())
+
+citibike_by_end.interval
+```
+
+```{r}
+# Now I Need to merge by station_id and time interval
+
+citibike_by_interval <- 
+  merge(citibike_by_start.interval, 
+        citibike_by_end.interval, 
+        by.x=c('start.station.id','start.interval'), 
+        by.y=c('end.station.id','end.interval'), all = TRUE)
+```
+
+
+
+```{r}
+citibike_by_interval[is.na(citibike_by_interval)] <- 0
+citibike_by_interval
+```
+
+```{r}
+# Rename columns
+colnames(citibike_by_interval)[1] <- "station_id"
+colnames(citibike_by_interval)[2] <- "interval_start.time"
+colnames(citibike_by_interval)[3] <- "depart.count"
+colnames(citibike_by_interval)[4] <- "arrive.count"
+
+citibike_by_interval
+```
+
+```{r}
+# Calculate surplus
+citibike_by_interval$surplus <- citibike_by_interval$arrive.count - citibike_by_interval$depart.count
+
+citibike_by_interval
+```
+
+```{r}
+citibike_by_interval_surplus <- citibike_by_interval %>%
+  dplyr::select(station_id, interval_start.time, surplus)
+
+citibike_by_interval_surplus
+```
+
+```{r}
+mydateseq<-seq(as.POSIXct("2022-08-01"), by="1 hour", length.out = 2208)  
+
+# Output the data sequence to confirm the result are 15 minute intervals which start on the hour
+tail(mydateseq)
+```
+
+```{r}
+citibike_by_interval_surplus_wide <- citibike_by_interval_surplus %>%
+  pivot_wider(names_from = station_id, values_from = surplus)
+
+citibike_by_interval_surplus_wide[is.na(citibike_by_interval_surplus_wide)] <- 0
+
+
+# For ordering
+citibike_by_interval_surplus_wide <- citibike_by_interval_surplus_wide[order(citibike_by_interval_surplus_wide$interval_start.time),]
+citibike_by_interval_surplus_wide
+```
+# Nice the above matrix is by time and then for all the columns are stations with the plus/minus for each one hour interval
+
+# 8P on 11/9/22, now I want to do is group by time with mean, regardless of day
+
+```{r}
+citibike_by_interval_surplus_wide$interval.start.ch <- as.character(citibike_by_interval_surplus_wide$interval_start.time)
+
+head(citibike_by_interval_surplus_wide[,1685:1689])
+```
+
+```{r}
+citibike_by_interval_surplus_wide$interval.start.ch <- sub(".*? ", "", citibike_by_interval_surplus_wide$interval.start.ch)
+```
+
+```{r}
+citibike_by_interval_surplus_wide <- citibike_by_interval_surplus_wide %>%
+  dplyr::select(-interval_start.time)
+```
+
+
+```{r}
+citibikestation_by_hour <- citibike_by_interval_surplus_wide %>%
+  pivot_longer(!interval.start.ch, names_to = "station.id", values_to = "count")
+```
+
+```{r}
+citibikestation_by_hour %>%
+  filter(count > 0)
+```
+
+
+```{r}
+citibikestation_avg_by_hour <- citibikestation_by_hour %>%
+  group_by(interval.start.ch, station.id) %>%
+  summarize(avg=mean(count))
+
+citibikestation_avg_by_hour
+```
+
+```{r}
+citibikestation_avg_by_hour %>%
+  filter(avg == 0)
+```
+
+The above number indicates that for one station at one hour, the average surplus/shortage across the entire 3 months of data on Wednesdays is avg column.
+
+```{r}
+stations_with_boro_hood <- read.csv('stations_with_boro_and_hood.csv', row.names = 1, header= TRUE)
+```
+
+```{r}
+stations_with_boro_hood
+```
+
+```{r}
+citibikestation_avg_by_hour_lat_long <- 
+  merge(citibikestation_avg_by_hour, 
+        stations_with_boro_hood, 
+        by.x=c('station.id'), 
+        by.y=c('short_name'), all.x = TRUE)
+```
+
+
+```{r}
+citibikestation_avg_by_hour_lat_long <- citibikestation_avg_by_hour_lat_long %>%
+  dplyr::select(interval.start.ch, station.id, avg, lon, lat)
+```
+
+```{r}
+citibikestation_avg_by_hour_lat_long
+```
+
+```{r}
+citibikestation_avg_by_hour_lat_long_5A <- citibikestation_avg_by_hour_lat_long %>%
+  filter(interval.start.ch == "05:00:00")
+citibikestation_avg_by_hour_lat_long_8A <- citibikestation_avg_by_hour_lat_long %>%
+  filter(interval.start.ch == "08:00:00")
+citibikestation_avg_by_hour_lat_long_11A <- citibikestation_avg_by_hour_lat_long %>%
+  filter(interval.start.ch == "11:00:00")
+```
+
+```{r}
+citibikestation_avg_by_hour_lat_long_2P <- citibikestation_avg_by_hour_lat_long %>%
+  filter(interval.start.ch == "14:00:00")
+citibikestation_avg_by_hour_lat_long_5P <- citibikestation_avg_by_hour_lat_long %>%
+  filter(interval.start.ch == "17:00:00")
+citibikestation_avg_by_hour_lat_long_8P <- citibikestation_avg_by_hour_lat_long %>%
+  filter(interval.start.ch == "20:00:00")
+```
+
+```{r}
+threshold_p <- 0.5
+threshold_n <- threshold_p * -1
+```
+
+```{r}
+# Using basemaps for NYC
+m_5A <- leaflet(data=citibikestation_avg_by_hour_lat_long_5A) %>% 
+#  setView(zoom=12) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    ~lon, ~lat, 
+    popup=~as.character(station.id), 
+    label=~as.character(station.id), 
+    radius=.5,
+    color = ~ifelse(avg > threshold_p, 'blue', 
+                    ifelse(avg < threshold_n, 'red', 'green'))
+  )
+
+# Display map
+m_5A
+```
+
+```{r}
+# Using basemaps for NYC
+m_8A <- leaflet(data=citibikestation_avg_by_hour_lat_long_8A) %>% 
+#  setView(zoom=12) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    ~lon, ~lat, 
+    popup=~as.character(station.id), 
+    label=~as.character(station.id), 
+    radius=.5,
+    color = ~ifelse(avg > threshold_p, 'blue', 
+                    ifelse(avg < threshold_n, 'red', 'green'))
+  )
+
+
+# Display map
+m_8A
+```
+
+```{r}
+# Using basemaps for NYC
+m_11A <- leaflet(data=citibikestation_avg_by_hour_lat_long_11A) %>% 
+#  setView(zoom=12) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    ~lon, ~lat, 
+    popup=~as.character(station.id), 
+    label=~as.character(station.id), 
+    radius=.5,
+    color = ~ifelse(avg > threshold_p, 'blue', 
+                    ifelse(avg < threshold_n, 'red', 'green'))
+  )
+
+
+# Display map
+m_11A
+```
+
+```{r}
+# Using basemaps for NYC
+m_2P <- leaflet(data=citibikestation_avg_by_hour_lat_long_2P) %>% 
+#  setView(zoom=12) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    ~lon, ~lat, 
+    popup=~as.character(station.id), 
+    label=~as.character(station.id), 
+    radius=.5,
+    color = ~ifelse(avg > threshold_p, 'blue', 
+                    ifelse(avg < threshold_n, 'red', 'green'))
+  )
+
+
+# Display map
+m_2P
+```
+
+
+```{r}
+# Using basemaps for NYC
+m_5P <- leaflet(data=citibikestation_avg_by_hour_lat_long_5P) %>% 
+#  setView(zoom=12) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    ~lon, ~lat, 
+    popup=~as.character(station.id), 
+    label=~as.character(station.id), 
+    radius=.5,
+    color = ~ifelse(avg > threshold_p, 'blue', 
+                    ifelse(avg < threshold_n, 'red', 'green'))
+  )
+
+
+# Display map
+m_5P
+```
+
+```{r}
+# Using basemaps for NYC
+m_8P <- leaflet(data=citibikestation_avg_by_hour_lat_long_8P) %>% 
+#  setView(zoom=12) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    ~lon, ~lat, 
+    popup=~as.character(station.id), 
+    label=~as.character(station.id), 
+    radius=.5,
+    color = ~ifelse(avg > threshold_p, 'blue', 
+                    ifelse(avg < threshold_n, 'red', 'green'))
+  )
+
+
+# Display map
+m_8P
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+# Next is to count the running total
+
+```{r}
+citibike_by_interval_surplus_wide
+```
+
+```{r}
+citibike_by_interval_surplus_wide_cs <- cumsum(citibike_by_interval_surplus_wide[2:1659])
+citibike_by_interval_surplus_wide_cs
+```
+
+```{r}
+time_index <- citibike_by_interval_surplus_wide$interval_start.time
+time_index
+```
+
+```{r}
+citibike_by_interval_surplus_wide
+```
+```{r}
+# Write the above to CSV
+#write.csv(citibike_by_interval_surplus_wide, file = 'stations_sept22_interval_surplus.csv')
+```
+
+```{r}
+
+citibike_by_interval_surplus_wide_cs <- cbind(time_index, citibike_by_interval_surplus_wide_cs)
+citibike_by_interval_surplus_wide_cs
+```
+
+Alright, so `citibike_by_interval_surplus_wide_cs` is the running total of eash station
+
+```{r}
+tail(citibike_by_interval_surplus_wide_cs)
+```
+# So many of the stations are negative, which can't be possible. Zero is absolutely the lowest number of bikes
+
+```{r}
+ff = function(x)
+{
+    cs = cumsum(x)
+    if (cs < 0) {
+      cs = 0
+    } else if (cs > 20) {
+      cs = 20
+    }
+}
+ff(citibike_by_interval_surplus_wide[2])
+```
+
+```{r}
+cumsum.bounded <- function(x, lower.bound = 0, upper.bound = 500) {
+    bsum <- function(x, y) min(upper.bound, max(lower.bound, x+y))
+    if (length(x) > 1) Reduce(bsum, x, acc = TRUE) else x
+}
+```
+
+```{r}
+cumsum.bounded(citibike_by_interval_surplus_wide[2:1659], 0, 20)
+```
+
+```{r}
+
+```
+
+```{r}
+library(dm)
+```
+
+```{r}
+cumsum_bounded(citibike_by_interval_surplus_wide[2:1659], 0, 20)
+```
+
+Unfortunately I wasn't able to get the cumsum bounded ... yet, need to check the .cpp suggestion
+
+https://stackoverflow.com/questions/21262424/bounded-cumulative-sum
+
+https://stat.ethz.ch/pipermail/r-help/2010-November/261244.html
+
+~~~~~
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
