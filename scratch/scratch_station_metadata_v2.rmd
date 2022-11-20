@@ -20,9 +20,11 @@ library(MASS)
 #library(igraph)
 #library(ggraph)
 #library(ggmap)
-#library(leaflet)
+library(leaflet)
 #library(rgdal)
-#library(RColorBrewer)
+library(RColorBrewer)
+library(broom)
+library(AER)
 ```
 
 
@@ -143,8 +145,8 @@ library(RANN)
 #40.67355733701634, -73.96085900000001
 # Lon, Lat of location
 location <- data.frame(matrix(nrow = 1,data = c(-73.960859, 40.67355)))
-closest_station <- nn2(stations_attrs_trim_bk61[, 9:10], query=location, k=1)
-inp_cluster <- stations_attrs_trim_bk61[closest_station$nn.idx,]$cluster
+closest_station <- nn2(stations_attrs_trim_bk[, 9:10], query=location, k=1)
+inp_cluster <- stations_attrs_trim_bk[closest_station$nn.idx,]$cluster
 inp_cluster
 ```
 
@@ -771,7 +773,7 @@ cluster_color <- colorFactor(palette=polychrome(), domain=stations_attrs_trim_bk
 
 # Using basemaps for NYC
 m <- leaflet(data=stations_attrs_trim_bk) %>% 
-  addTiles() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
   addCircleMarkers(
     ~lon, ~lat, 
     popup=~as.character(cluster), 
@@ -918,7 +920,7 @@ colorPalette <- colorBin(palette = "Spectral", bins = paletteBins, reverse=TRUE)
 
 # Using basemaps for NYC
 m_bk_zeroAvail <- leaflet(data=bk_stations_bike_availZero_counts) %>% 
-  addTiles() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
   addCircleMarkers(
     ~lon, ~lat, 
     popup=~as.character(station.id), 
@@ -927,38 +929,92 @@ m_bk_zeroAvail <- leaflet(data=bk_stations_bike_availZero_counts) %>%
     color = ~colorPalette(count),
     fillColor = ~colorPalette(count),
     fillOpacity = 1,
-  )
+  ) %>%
+addLegend(pal = colorPalette, values = bk_stations_bike_availZero_counts$count, opacity=0.9, title = "Frequency of Zero Availability", position = "bottomright")
 
 
 # Display map
 m_bk_zeroAvail
 ```
 
-```{r}
+# Now to try to identify rebalancing
 
+```{r}
+bk_station_ids <- stations_attrs_trim_bk$station.id
+# List of BK station IDs
+#bk_station_ids
+
+columns_bk <- append("timestamp", bk_station_ids)
+columns_bk
 ```
 
 ```{r}
+columns_all <- colnames(stations_with_bike_avail)
+#columns_all
 
+cols_bk_int <- intersect(columns_all, columns_bk)
+
+
+bk_stations_bikeAvail_15M <- stations_with_bike_avail[,cols_bk_int]
+```
+
+
+```{r}
+bk_stations_bikeAvail_15M
+```
+
+
+```{r}
+#bk_stations_bikeAvail_15M_diff <- diff(bk_stations_bikeAvail_15M[,2:469])
+#bk_stations_bikeAvail_15M_diff
+
+
+# calculating rows of dataframe
+rows <- nrow(bk_stations_bikeAvail_15M)
+  
+# difference in rows of entire dataframe
+bk_stations_bikeAvail_15M_diff <- bk_stations_bikeAvail_15M[-1,-1] - bk_stations_bikeAvail_15M[-rows,-1]
+  
+bk_stations_bikeAvail_15M_diff
 ```
 
 ```{r}
+bk_stations_15M_interval_diff <- cbind(bk_stations_bikeAvail_15M[-1,1], bk_stations_bikeAvail_15M_diff) %>%
+  rename(timestamp=`bk_stations_bikeAvail_15M[-1, 1]`)
 
+bk_stations_15M_interval_diff
 ```
 
 ```{r}
+max(bk_stations_15M_interval_diff[-1])
 ```
 
 ```{r}
-
+bk_stations_15M_interval_diff_long <- bk_stations_15M_interval_diff %>%
+  pivot_longer(!timestamp, names_to = "station.id", values_to = "interval.diff")
 ```
 
 ```{r}
-
+bk_stations_15M_interval_diff_long
 ```
 
 ```{r}
+# Using the interval diff DF, finding all the stations with the a diff of 12 or more within 15 minutes, which would imply rebalancing occurred, and then counting the number of instances of rebalancing.
+# station 313 happens frequently
+bk_stations_15M_interval_diff_long %>%
+  filter(interval.diff >= 12) %>%
+  group_by(station.id) %>%
+  summarize(count=n()) %>%
+  filter(count >= 8)
+```
 
+The above 4 stations indicate rebalancing occured 8 or more time in the span of the 2 weeks
+
+Rebalancing defined as the interval increase of 12 or bikes from one 15min interval to the next
+
+```{r}
+stations_attrs_trim_bk %>%
+  filter(station.id == "4504")
 ```
 
 ```{r}
