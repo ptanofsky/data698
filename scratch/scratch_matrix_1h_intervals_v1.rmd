@@ -241,8 +241,7 @@ threshold_n <- threshold_p * -1
 ```{r}
 # Using basemaps for NYC
 m_5A <- leaflet(data=citibikestation_avg_by_hour_lat_long_5A) %>% 
-#  setView(zoom=12) %>%
-  addTiles() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
   addCircleMarkers(
     ~lon, ~lat, 
     popup=~as.character(station.id), 
@@ -259,8 +258,7 @@ m_5A
 ```{r}
 # Using basemaps for NYC
 m_8A <- leaflet(data=citibikestation_avg_by_hour_lat_long_8A) %>% 
-#  setView(zoom=12) %>%
-  addTiles() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
   addCircleMarkers(
     ~lon, ~lat, 
     popup=~as.character(station.id), 
@@ -278,8 +276,7 @@ m_8A
 ```{r}
 # Using basemaps for NYC
 m_11A <- leaflet(data=citibikestation_avg_by_hour_lat_long_11A) %>% 
-#  setView(zoom=12) %>%
-  addTiles() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
   addCircleMarkers(
     ~lon, ~lat, 
     popup=~as.character(station.id), 
@@ -297,8 +294,7 @@ m_11A
 ```{r}
 # Using basemaps for NYC
 m_2P <- leaflet(data=citibikestation_avg_by_hour_lat_long_2P) %>% 
-#  setView(zoom=12) %>%
-  addTiles() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
   addCircleMarkers(
     ~lon, ~lat, 
     popup=~as.character(station.id), 
@@ -317,8 +313,7 @@ m_2P
 ```{r}
 # Using basemaps for NYC
 m_5P <- leaflet(data=citibikestation_avg_by_hour_lat_long_5P) %>% 
-#  setView(zoom=12) %>%
-  addTiles() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
   addCircleMarkers(
     ~lon, ~lat, 
     popup=~as.character(station.id), 
@@ -336,8 +331,7 @@ m_5P
 ```{r}
 # Using basemaps for NYC
 m_8P <- leaflet(data=citibikestation_avg_by_hour_lat_long_8P) %>% 
-#  setView(zoom=12) %>%
-  addTiles() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
   addCircleMarkers(
     ~lon, ~lat, 
     popup=~as.character(station.id), 
@@ -353,8 +347,17 @@ m_8P
 ```
 
 ```{r}
-
+library(mapview)
+#Output leaflet maps to JPG
+mapshot(m_5A, file = "cb_stations_surplus_5A.jpg")
+mapshot(m_8A, file = "cb_stations_surplus_8A.jpg")
+mapshot(m_11A, file = "cb_stations_surplus_11A.jpg")
+mapshot(m_2P, file = "cb_stations_surplus_2P.jpg")
+mapshot(m_5P, file = "cb_stations_surplus_5P.jpg")
+mapshot(m_8P, file = "cb_stations_surplus_8P.jpg")
 ```
+
+# IGNORE EVERYTHING BELOW ... 3:32P ON NOV 20, 2022
 
 ```{r}
 

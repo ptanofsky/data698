@@ -1,0 +1,913 @@
+---
+title: "Scratch with Sept 2022 Data"
+author: "Philip Tanofsky"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+Scratch work using the September 2022 data, most recent as I'm working on this Oct. 30, 2022
+
+Update: v2, started working at 8:30p on Friday, Nov. 11, 2022
+
+Updated: v3, started working at 1:44P on Saturday, Nov. 12, 2022
+
+Updated: v4, started working at 2:48P on Sunday, Nov. 19, 2022
+- Clean is meant to be removing all extraneous code, and only include final/final code
+
+
+11/12/2022
+
+Data Collection and Analysis
+
+For submission on 11/13/2022
+      + scratch_station_avail_v1.rmd does lookup of station lat/lon to neighborhood and borough
+  ++ Add some charts for Sept. '22 avail by borough and neighborhood
+      + scratch_elevation_distance_v1.rmd determines elevation of station, add that to above
+  ++ Add some charts for Sept. '22 avail by elevation
+      + scratch_network_graph_map_v1.rmd builds network graph based on trips start/ends
+  ++ Perform some initial network graph analysis (nothing important expected here)
+      + time_series_graphs_v1.rmd
+        + Add these but make sure they aren't duplicate of some initial charts
+      + leaflet for shiny
+  ++ small multiples of surplus by hour, perhaps 7a-7p (12-15 total)
++ matrix_15min_intervals_v1 likely needed for above
+
+++ Do some sort of clustering!!!
+
+
+
+Not yet, probably Monday
+Given the two weeks of API data, determine when the rebalance will occur for any station and then synthetically add that to the running totals by adding in a fake row with a time + 1 minute and the surplus to help reset the running count
+
+
+Input into the model
+Lat/long, day of the week, time, bikes desired, within XX meters (distance willing to walk)
+
+
+
+```{r warning=FALSE}
+# Required packages
+library(tidyverse)
+library(ggplot2)
+library(skimr)
+library(lubridate)
+library(fpp3)
+library(assertthat)
+library(igraph)
+library(ggraph)
+library(ggmap)
+library(leaflet)
+library(rgdal)
+library(RColorBrewer)
+library(data.table)
+```
+
+
+Analysis starting with the Citibike bike trips for September 2022.
+
+```{r}
+# Create additional columns of pertinence
+# weekday, day of the month, trip duration in minutes, start hour
+citibike_202208 <- fread("data/202208-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
+citibike_202209 <- fread("data/202209-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
+citibike_202210 <- fread("data/202210-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
+
+citibike <- bind_rows(citibike_202208, citibike_202209, citibike_202210) %>%
+  mutate(day = factor(mday(ymd_hms(started_at))),
+         start.hour=factor(hour(ymd_hms(started_at))),
+         weekday = lubridate::wday(ymd_hms(started_at), label=TRUE, abbr=TRUE),
+         trip.duration = as.numeric(difftime(ended_at,started_at,units="mins")),
+         member_casual = factor(member_casual)) %>%
+  rename(ride.id=ride_id, rideable.type=rideable_type, started.at=started_at,
+         ended.at=ended_at, start.station.name=start_station_name, start.station.id=start_station_id,
+         end.station.name=end_station_name, end.station.id=end_station_id, start.lat=start_lat,
+         start.lng=start_lng, end.lat=end_lat, end.lng=end_lng, member.casual=member_casual)
+
+# Figure out abandoned and label them
+citibike$end.station.name[citibike$end.station.name == ''] <- "Abandoned"
+citibike$end.station.id[citibike$end.station.id  == ''] <- "ABAN"
+
+# Output DF if needed
+head(citibike)
+```
+
+
+```{r}
+# Output DF to visually check data
+citibike
+```
+
+September contains 3,507,123 rows, so 3.5 million trips during the month of September 2022.
+
+Aug-Oct contains 10,210,102 trips
+
+3,021,670 in Oct.
+
+3,681,309 in Aug.
+
+```{r}
+skim(citibike)
+```
+
+3507123 ride_id's which is one for each bike trip
+
+end_station_name and end_station_id are empty for 8012 rows
+end_lat and end_lng are missing for 3838 rows
+
+With 8012 missing end_station_name and end_station_id, it would indicate 8012 trips can be considered abandoned in that they were not formally docked. 4174 contain the end_lat and end_lng so final location is available but for 48% of abandons, the final destination is not included in the data. Consider all 8012 as 'Abandons'
+
+From: https://ride.citibikenyc.com/system-data
+
+This data has been processed to remove trips that are taken by staff as they service and inspect the system, trips that are taken to/from any of our “test” stations (which we were using more in June and July 2013), and any trips that were below 60 seconds in length (potentially false starts or users trying to re-dock a bike to ensure it's secure).
+
+```{r}
+citibike %>%
+  group_by(rideable.type) %>%
+  summarize(n=n())
+```
+
+Docked_bike is 87417 which is almost 1000 per day, does this represent the rebalancing. No, the rebalancing for August 2022 was 78,782 bicycles during the month of August at (https://mot-marketing-whitelabel-prod.s3.amazonaws.com/nyc/August-2022-Citi-Bike-Monthly-Report.pdf), and given Sept. 2022 is similar in overall bike trip count, no assumption can be made of docked_bike at this time.
+
+```{r}
+citibike %>%
+  filter(rideable.type=='docked_bike') %>%
+  group_by(member.casual) %>%
+  summarize(n=n())
+```
+All 87417 are casual for the 'docked_bike'. This implies they are not member rides.
+
+```{r}
+citibike %>%
+  filter(end.station.name == 'Abandoned')
+```
+
+It appears 8012 bike trips were abandoned as the end_station_name, and end_station_id are empty.
+
+For Aug-Oct, 24,887 trips are abandoned as the end.station.name is 'Abandoned'
+
+6,470 abandons in Oct.
+
+10,405 in Aug.
+
+```{r}
+citibike %>%
+  filter(end.station.name == 'Abandoned') %>%
+  group_by(member.casual) %>%
+  summarize(count=n())
+```
+
+Interesting there are more member abandons then casual. But definition of member could be 1 month, not a whole year.
+
+casual	10888			
+member	13999	
+
+```{r}
+# Number of trips for each hour of the day
+ggplot(citibike, aes(x=start.hour)) +
+  geom_bar() +
+  labs(x = 'Time of Day',
+       y = 'Number of Trips') +
+  theme(axis.text.x = element_text(size=8, angle=90))
+```
+
+This is overall user base, so a spike at 8A and then again at 5P and 6P hour, which is expected for rush hour, to and from work.
+
+```{r}
+# Now let's check trips per hour by user type
+ggplot(citibike, aes(x=start.hour)) +
+  geom_bar() +
+  labs(x = 'Time of Day',
+       y = 'Number of Trips') +
+  theme(axis.text.x=element_text(size=8, angle=90)) +
+  facet_wrap(~member.casual)
+```
+
+Rush hour spikes for members, also a bit of a evening rush hour for casual, too. The separation of member vs casual shows a clearer spike at the rush hour times. Also, the higher usage of member throughout the middle of the day may indicate even if someone is a member the primary reason may not be transportation to and from work.
+
+
+```{r}
+citibike %>%
+  group_by(weekday) %>%
+  summarize(n=n(),
+            weekday = weekday[1]) %>%
+  group_by(weekday) %>%
+  summarize(n.m=mean(n)) %>% # Get the average for each day to account for extra days of the month beyond 28
+  ggplot(aes(x=weekday, y=n.m)) + geom_bar(stat='identity') +
+  labs(x = 'Day of Week',
+       y = 'Number of Trips',
+       title = 'Average Number of Bike Trips by Day of Week')
+```
+
+By average trips per day of the week, Wednesday is the highest volume day. Given this is September 2022, I wonder if this is a result of pandemic return-to-office policies in which it's more common for workers to return to office during the middle of the week instead of Monday or Friday for those with hybrid schedules.
+
+
+```{r}
+# Let's check the volume of day by the user type
+citibike %>%
+  group_by(weekday, member.casual) %>%
+  summarize(n=n(),
+            weekday = weekday[1]) %>%
+  group_by(weekday, member.casual) %>%
+  summarize(n.m=mean(n)) %>%
+  ggplot(aes(x=weekday, y=n.m)) + geom_bar(stat='identity') +
+  labs(x = 'Day of Week',
+       y = 'Number of Trips',
+       title = 'Number of Bike Trips by Day of Week') +
+  facet_wrap(~member.casual)
+```
+
+Casual is more likely tourists and recreation use represented in the Sunday and Saturday as the days with the highest volume of trips, while member are more likely to use during weekdays, and thus more likely for work transportation.
+
+```{r}
+# Trip by weekday by segment by time of day
+citibike %>%
+  group_by(weekday, member.casual, start.hour) %>%
+  summarize(n=n(),
+            weekday=weekday[1]) %>%
+  group_by(weekday, member.casual, start.hour) %>%
+  summarize(n.m=mean(n)) %>%
+  ggplot(aes(x=start.hour, y=n.m, fill=weekday)) +
+  geom_bar(stat='identity') +
+  labs(x='Time of Day',
+       y='Number of Trips',
+       title='Average Number of Bike Trips by Time of Day and Weekday') +
+  facet_grid(weekday~member.casual) +
+  theme(axis.text.x = element_text(size=8, angle=90),
+        legend.position = 'none')
+```
+
+Here, we see member accounts use the bikes on the weekend greater than casual. Interesting, for casual we do see spikes during the end of workday rush hour on Tue, Wed, Thu, Fri.
+
+```{r}
+# Trip durations
+citibike %>%
+  filter(trip.duration < 0)
+
+```
+
+337 trips with duration less than 0 ... not possible
+
+```{r}
+# Trip durations
+citibike %>%
+  filter(trip.duration < 100 & trip.duration > 0) %>% # only consider trips less than 100 minutes. 
+  ggplot(aes(x=trip.duration)) +
+  geom_histogram(bins=100) +
+  labs(x = 'Trip Duration (min.)',
+       y = 'Number of Trips')
+
+```
+
+As expected, most trips are below 30 minutes and the graph is left skewed, indicating a higher volume of short trip durations. The chart only considers bike trips less than 100 minutes as the checkout time is 30 minutes, so this is greater than three times the default rental time. With an additional charge after 30 minutes, the majority of trips are 30 minutes or less.
+
+```{r}
+# Segment durations by user type
+citibike %>%
+  filter(trip.duration < 100 & trip.duration > 0) %>%
+  ggplot(aes(x=trip.duration)) +
+  geom_histogram(bins=100) +
+  labs(x = 'Trip Duration (min.)',
+       y = 'Number of Trips') +
+  facet_wrap(~member.casual)
+```
+
+```{r}
+# Same as above with density plot instead of histogram
+citibike %>%
+  filter(trip.duration < 100 & trip.duration > 0) %>%
+  ggplot(aes(x=trip.duration, fill=member.casual)) +
+  geom_density(alpha=0.2) +
+  labs(x = 'Trip Duration (min.)',
+       y = 'Number of Trips')
+```
+
+Separating the density plot by user type shows the casual users tend to have longer trips than member users.
+
+
+```{r}
+citibike %>%
+  group_by(start.hour) %>%
+  summarize(med.duration=median(trip.duration)) %>%
+  ggplot(aes(x=start.hour, y=med.duration)) +
+  geom_point() +
+  geom_line(aes(group=1), linetype='dotted')
+```
+
+The above plot shows the average duration of trips based on the time of the day. The longer average of trips (greater than 10 minutes) tend to occur between noon and midnight.
+
+```{r}
+citibike %>%
+  group_by(weekday, start.hour) %>%
+  summarize(med.duration=median(trip.duration)) %>%
+  ggplot(aes(x=start.hour, y=med.duration, group=weekday, color=weekday)) +
+  geom_point(size=3) +
+  geom_line(size=0.5) +
+  facet_wrap(~weekday, nrow=1) +
+  theme(legend.position='none') +
+  scale_x_discrete(breaks=c(0,3,6,9,12,15,18,21))
+```
+
+The above plot shows the average trip duration by hour for each day of the week. The weekday pattern occurs Monday through Thrusday with a slight deviation on Friday evening as the weekend starts. The afternoon and evening hours of Saturday and Sunday show longer trips as likely the result of tourism and recreational trips.
+
+```{r}
+citibike %>%
+  filter(member.casual %in% c('member', 'casual')) %>%
+  group_by(weekday, start.hour, member.casual) %>%
+  summarize(med.duration=median(trip.duration)) %>%
+  ggplot(aes(x=start.hour, y=med.duration, group=weekday, color=weekday)) +
+  geom_point(size=3) +
+  geom_line(size=0.5) +
+  facet_grid(weekday~member.casual) +
+  theme(legend.position='none') +
+  scale_x_discrete(breaks=c(0,3,6,9,12,15,18,21))
+```
+
+The charts of average trip duration by user type shows a clear distinction. member users tend to average bike trips of 10 minutes or less throughout the week, whereas the casual users have a greater variance in average duration based on time of day and day of the week. Reiterating the tourism and recreational use by casual users, the highest average duration occurs in the afternoon on weekend days.
+
+```{r}
+citibike %>%
+  filter(member.casual %in% c('member', 'casual')) %>%
+  group_by(weekday, start.hour, member.casual) %>%
+  summarize(med.duration=median(trip.duration)) %>%
+  ggplot(aes(x=start.hour, y=med.duration, group=member.casual, 
+             color=member.casual, linetype=member.casual, shape=member.casual)) +
+  geom_point(size=2) +
+  geom_line(size=0.5) +
+  facet_wrap(~weekday, nrow=1) +
+  labs(x='Time of Day',
+       y='Median Trip Duration') +
+  scale_x_discrete(breaks=c(0,6,12,18))
+```
+
+This is basically the same as the one above it, I like this one better.
+
+
+
+# START HERE WITH ATTEMPT OF THE NETWORK GRAPH OF CITI BIKE STATIONS
+
+
+There are NO starts with JC or HB, but there are ends with JC and HB
+
+```{r}
+# Create table of start to end station IDs
+stations_cols <- citibike %>%
+  dplyr::select(start.station.id, end.station.id)
+stations_table <- as.data.frame((table(stations_cols)))
+
+stations_table <- stations_table %>%
+  filter(Freq > 0)
+
+stations_table_order <- stations_table[order(-stations_table$Freq),]
+nrow(stations_table_order)
+```
+
+720622 rows 
+
+```{r}
+stations_table_dif <- stations_table_order %>%
+  filter(as.character(start.station.id) != as.character(end.station.id))
+
+nrow(stations_table_dif)
+```
+
+471313 rows in which the start and end are different values 
+
+Aug-Oct: 718965 in which start and end are different values
+
+```{r}
+# Create table of start to end station IDs
+stations_cols <- citibike %>%
+  dplyr::select(start.station.id, end.station.id)
+stations_table <- as.data.frame((table(stations_cols)))
+
+stations_table <- stations_table %>%
+  filter(Freq > 0)
+
+stations_table_order <- stations_table[order(-stations_table$Freq),]
+nrow(stations_table_order)
+```
+
+For all valid combinations of start to end, there are 472920 combinations (A-O: 720622)
+
+The above table also indicates the frequency of those trips for start-end combinations.
+
+The top 15 entries of the top 20 are the same start and end station ID. so these are casual rides, I have a feeling these 5 are near tourist destinations, perhaps Central Park
+
+```{r}
+stations_table_dif <- stations_table_order %>%
+  filter(as.character(start.station.id) != as.character(end.station.id))
+
+nrow(stations_table_dif)
+```
+
+471313 in which the start and the end station IDs are NOT the same
+
+718965 for A-O
+
+Now, I want to determine overall flow between any existing combination. At the end of the month, is the flow to or from a station
+
+```{r}
+stations_table_dif1 <- stations_table_dif
+stations_table_dif2 <- stations_table_dif
+```
+
+
+
+```{r}
+# Added all=TRUE to account for one-sided counts
+res <- 
+merge(stations_table_dif1, 
+      stations_table_dif1, 
+      by.x=c('start.station.id','end.station.id'), 
+      by.y=c('end.station.id','start.station.id'), all = TRUE)
+# Set the NA (one-sided trips) to count of 0
+res[is.na(res)] <- 0
+```
+
+```{r}
+res$surplus <- res$Freq.y - res$Freq.x
+res <- res[order(-res$surplus),]
+#res
+```
+
+```{r}
+# Remove rows with start station id equal to ABAN for abandoned, those are a result of the merge all=TRUE and should not exist
+res <- res %>% filter(start.station.id != 'ABAN')
+#res
+```
+
+Above returns a list of 619887 combinations given every start-end combo exists as the inverse is valid, too except for Abandoned starts
+
+So Freq.x is the count of trips from start to end
+-- Freq.y is the count of trips from end to start
+surplus is Freq.y - Freq.x which means that positive number indicates return trips are more and thus surplus of bikes
+and negative number indicates return trips are less and thus the station is not breaking even
+
+```{r}
+res %>% filter(end.station.id == 'ABAN')
+```
+
+1363 rows indicate most start stations will have at least one abandoned bike
+
+A-O: 1606
+
+```{r}
+res %>% filter(Freq.x == 0)
+```
+
+With Freq.x ==0 , there are 148,574  rows in which an end-to-start occurs, so the rows are pure surplus to the start_station_id
+
+A-O: 192,029
+
+```{r}
+# Want to identify the surplus (or not) by station for the month
+station_surplus_count <- res %>%
+  group_by(start.station.id) %>%
+  summarize(surplus_sum=sum(surplus))
+nrow(station_surplus_count)
+```
+The above indicates 1656 rows, 2 less than the count of end_station_id from the initial dataset
+
+1715
+
+```{r}
+station_surplus_count <- station_surplus_count[order(-station_surplus_count$surplus_sum),]
+#station_surplus_count %>%
+#    filter(startsWith(as.character(start_station_id), 'S'))
+colnames(station_surplus_count)[1] <- "station_id"
+#station_surplus_count
+```
+21 start with J
+14 start with H
+
+Above is result showing the surplus(+) or not surplus (-) of 1656 stations in the NYC district, this probably includes a few JC or HB stations
+
+```{r}
+sum(station_surplus_count$surplus_sum)
+
+head(station_surplus_count)
+```
+
+-8012 indicates 8012 abandons ... AND THAT IS A CORRECT NUMBER!!! phew!!!
+
+-24887: A-O
+
+```{r}
+# Extract just the end station Id, lat, log
+# because this had the higher count from the initial dataset, going with end_station_id
+end_station_info <- citibike %>%
+  dplyr::select(end.station.id, end.lng, end.lat)
+
+#end_station_info <- unique( end_station_info[ , 1:3 ] )
+end_station_info <- end_station_info[!duplicated(end_station_info$end.station.id),]
+end_station_info %>%
+  filter(end.station.id == 'ABAN')
+```
+
+For awareness, the ABAN entry does have lng and lat
+ABAN	-74.01	40.73		
+
+```{r}
+# Now I want the coordinates of all those station_ids
+station_surplus_count_coords <- merge(x = station_surplus_count, y = end_station_info, by.x = 'station_id', by.y='end.station.id', all.x = TRUE)
+
+colnames(station_surplus_count_coords)[3] <- "lng"
+colnames(station_surplus_count_coords)[4] <- "lat"
+#station_surplus_count_coords
+
+station_surplus_count_coords <- station_surplus_count_coords %>%
+  add_row(station_id = "ABAN", surplus_sum=1363, lng=-73.99, lat=40.67)
+
+nrow(station_surplus_count_coords)
+```
+Above table accounts for all the station IDs with overal surplus or not surplus along with coordinates
+
+
+# STATIONS
+
+```{r}
+# Ok, now I want to understand all the stations
+n_distinct(citibike$start.station.id)
+```
+
+1618 start station IDs in NYC dataset
+
+1659
+
+```{r}
+n_distinct(citibike$end.station.id)
+```
+
+And 1658 end station IDs in NYC dataset. 40 more end_station_ids then start_station_ids.
+
+1716
+
+```{r}
+setdiff(citibike$end.station.id, citibike$start.station.id)
+```
+
+Of those 40, there is the ABAN, which means abandoned, several JC (Jersey City), several HB (Hoboken), one number which should be a specific station in NYC, and 3 SYS*
+
+21 JC
+1 ABAN
+14 HB
+1 NYC
+3 SYS
+
+### now to try leaflet to color the station Ids
+
+```{r}
+# Remove the NJ stations from this map
+nyc_stations_surplus_count_coords <- station_surplus_count_coords %>%
+  filter(!startsWith(station_id, "JC") & !startsWith(station_id, "HB"))
+```
+
+```{r}
+# Using basemaps for NYC
+m <- leaflet(data=nyc_stations_surplus_count_coords) %>% 
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addCircleMarkers(
+    ~lng, ~lat, 
+    popup=~as.character(station_id), 
+    label=~as.character(station_id), 
+    radius=.5,
+    color = ~ifelse(surplus_sum >= 1, 'blue', 
+                    ifelse(surplus_sum == 0, 'green', 'red'))
+  )
+
+# Display map
+m
+```
+
+Above map indicates the overall net bikes of a station for the given month
+- blue, value is positive
+- red, value is negative
+- green, value is 0
+
+```{r}
+library(mapview)
+
+## 'leaflet' objects (image above)
+#m <- leaflet() %>% addTiles()
+mapshot(m, file = "stations_surplus_sum.jpg")
+```
+
+```{r}
+sum(station_surplus_count$surplus_sum)
+```
+
+
+From the initial dataset, there were 8012 trips without an station_id, so that means bikes were abandoned
+
+-24887
+
+```{r}
+station_surplus_count %>%
+  filter(surplus_sum > 0) %>%
+  count()
+```
+909 stations with a surplus
+
+```{r}
+station_surplus_count %>%
+  filter(surplus_sum == 0) %>%
+  count()
+```
+35 stations that break even
+
+```{r}
+station_surplus_count %>%
+  filter(surplus_sum < 0) %>%
+  count()
+```
+771 stations with not surplus (overall result is less bikes)
+
+-30- End of tail of work from scrach_202209_v3.rmd which is really the leaflet work
+
+# GOAL IS TO CREATE A MATRIX OF THE STARTS/ENDS FOR 15 MINUTE INTERVALS FOR EACH STATION
+
+
+```{r}
+nrow(citibike)
+```
+10210102 before removal of 8 start.station.id missing values
+
+10210094 after removal of 8 start.station.id missing values
+
+```{r}
+# 8 rows don't contain a start.station.id and thus I have no idea, removing these
+citibike <- citibike %>%
+  filter(!citibike$start.station.id  == '')
+```
+
+```{r}
+# Ok, need to convert start time to actual datetime format
+#citibike$started_at <- as_datetime(as.character(citibike$started_at))
+citibike$ended.at <- as_datetime(as.character(citibike$ended.at))
+#citibike$end_station_name[citibike$end_station_name == ''] <- "Abandoned"
+#citibike$end_station_id[citibike$end_station_id  == ''] <- "ABAN"
+
+head(citibike)
+```
+
+```{r}
+# And now for grouping by 1 hour
+
+citibike_by_start.interval <- citibike %>%
+  mutate(start.interval=lubridate::floor_date(started.at, "1 hour")) %>%
+  group_by(start.station.id, start.interval) %>%
+  summarize(start.count=n())
+
+head(citibike_by_start.interval)
+```
+
+```{r}
+citibike_by_end.interval <- citibike %>%
+  mutate(end.interval=lubridate::floor_date(ended.at, "1 hour")) %>%
+  group_by(end.station.id, end.interval) %>%
+  summarize(count=n())
+
+head(citibike_by_end.interval)
+```
+
+```{r}
+# Now I Need to merge by station_id and time interval
+citibike_by_interval <- 
+  merge(citibike_by_start.interval, 
+        citibike_by_end.interval, 
+        by.x=c('start.station.id','start.interval'), 
+        by.y=c('end.station.id','end.interval'), all = TRUE)
+```
+
+
+
+```{r}
+citibike_by_interval[is.na(citibike_by_interval)] <- 0
+citibike_by_interval
+```
+
+```{r}
+citibike_by_interval <- citibike_by_interval %>%
+  filter(!start.station.id == '')
+
+head(citibike_by_interval)
+```
+
+```{r}
+# Rename columns
+colnames(citibike_by_interval)[1] <- "station_id"
+colnames(citibike_by_interval)[2] <- "interval_start.time"
+colnames(citibike_by_interval)[3] <- "depart.count"
+colnames(citibike_by_interval)[4] <- "arrive.count"
+
+head(citibike_by_interval)
+```
+
+```{r}
+# Calculate surplus
+citibike_by_interval$surplus <- citibike_by_interval$arrive.count - citibike_by_interval$depart.count
+
+head(citibike_by_interval)
+```
+
+```{r}
+citibike_by_interval_surplus <- citibike_by_interval %>%
+  dplyr::select(station_id, interval_start.time, surplus)
+
+head(citibike_by_interval_surplus)
+```
+
+
+```{r}
+mydateseq<-seq(as.POSIXct("2022-08-01"), by="1 hour", length.out = 2208)  
+
+# Output the data sequence to confirm the result are 15 minute intervals which start on the hour
+mydateseq[2208]
+```
+
+```{r}
+citibike_by_interval_surplus_wide <- citibike_by_interval_surplus %>%
+  pivot_wider(names_from = station_id, values_from = surplus)
+
+citibike_by_interval_surplus_wide[is.na(citibike_by_interval_surplus_wide)] <- 0
+
+
+# For ordering
+citibike_by_interval_surplus_wide <- citibike_by_interval_surplus_wide[order(citibike_by_interval_surplus_wide$interval_start.time),]
+head(citibike_by_interval_surplus_wide)
+```
+
+# Nice the above matrix is by time and then for all the columns are stations with the plus/minus for each 1 hour interval
+
+# Next is to count the running total
+
+```{r}
+citibike_by_interval_surplus_wide_cs <- cumsum(citibike_by_interval_surplus_wide[2:1717])
+head(citibike_by_interval_surplus_wide_cs)
+```
+
+```{r}
+time_index <- citibike_by_interval_surplus_wide$interval_start.time
+#time_index
+```
+
+
+```{r}
+# Write the above to CSV
+#write.csv(citibike_by_interval_surplus_wide, file = 'stations_AtoO_1H_interval_surplus.csv')
+```
+
+```{r}
+citibike_by_interval_surplus_wide_cs <- cbind(time_index, citibike_by_interval_surplus_wide_cs)
+head(citibike_by_interval_surplus_wide_cs)
+```
+
+Alright, so `citibike_by_interval_surplus_wide_cs` is the running total of each station
+
+```{r}
+tail(citibike_by_interval_surplus_wide_cs)
+```
+
+# So many of the stations are negative, which can't be possible. Zero is absolutely the lowest number of bikes
+
+-30- end of the scratch_matrix_15min_intervals_v1
+
+
+```{r}
+stations_with_elevation <- read.csv('stations_with_elevation.csv', row.names = 1, header= TRUE)
+head(stations_with_elevation)
+```
+
+```{r}
+stations_with_boro_hood <- read.csv('stations_with_boro_and_hood.csv', row.names = 1, header= TRUE)
+head(stations_with_boro_hood)
+```
+
+
+```{r}
+# Combine the elevation, borough, neighborhood, and September surplus
+# First let's trim the DF for elevation
+stations_with_elevation_trim <- stations_with_elevation %>%
+  select(short_name, station_id, elevation, elev_units)
+
+head(stations_with_elevation_trim)
+```
+
+```{r}
+stations_with_boro_hood_trim <- stations_with_boro_hood %>%
+  select(short_name, name, station_id, capacity, ntaname, boro_name, lon, lat)
+
+head(stations_with_boro_hood_trim)
+```
+
+
+```{r}
+stations_attrs_trim <- 
+  merge(stations_with_elevation_trim, 
+        stations_with_boro_hood_trim, 
+        by.x=c('short_name'), 
+        by.y=c('short_name'), all = TRUE)
+
+stations_attrs_trim <- stations_attrs_trim %>%
+  select(-station_id.y)
+
+colnames(stations_attrs_trim)[colnames(stations_attrs_trim) == 'station_id.x'] <- 'station_id'
+
+stations_attrs_trim[c("boro_name")][is.na(stations_attrs_trim[c("boro_name")])] <- "New Jersey"
+
+stations_attrs_trim <- 
+  stations_attrs_trim %>% 
+  mutate(ntaname = ifelse(startsWith(short_name, "JC"), "Jersey City", ntaname))
+
+stations_attrs_trim <- 
+  stations_attrs_trim %>% 
+  mutate(ntaname = ifelse(startsWith(short_name, "HB"), "Hoboken", ntaname))
+
+head(stations_attrs_trim)
+```
+Above is good
+
+```{r}
+stations_attrs_trim %>%
+  group_by(boro_name) %>%
+  summarize(cnt=n())
+```
+
+```{r}
+stations_attrs_trim %>%
+  filter(boro_name == "New Jersey")
+```
+
+
+```{r}
+stations_attrs_trim_sur <- 
+  merge(stations_attrs_trim, 
+        station_surplus_count, 
+        by.x=c('short_name'), 
+        by.y=c('station_id'), all.x = TRUE)
+
+#stations_attrs_trim_sur
+```
+
+```{r}
+stations_attrs_trim_sur <- stations_attrs_trim_sur %>%
+  filter(!is.na(surplus_sum))
+
+#stations_attrs_trim_sur
+```
+
+Hmm, I lost 74 by removing surplus_sum with NA, which actually removed a few NYC stations.
+
+```{r}
+# Station elevations
+stations_attrs_trim_sur %>%
+  filter(elevation < 100) %>%
+  ggplot(aes(x=elevation)) +
+  geom_histogram(bins=101) +
+  labs(x = 'Elevation (meters)',
+       y = 'Number of Stations')
+```
+
+```{r}
+# Station surplus
+stations_attrs_trim_sur %>%
+  filter(surplus_sum >= -100 & surplus_sum <= 100) %>%
+  ggplot(aes(x=surplus_sum)) +
+  geom_histogram(bins=201) +
+  labs(x = 'Surplus Count',
+       y = 'Number of Stations')
+```
+
+```{r}
+stations_attrs_trim_sur %>%
+  filter(surplus_sum >= -100 & surplus_sum <= 100) %>%
+  ggplot(aes(x=surplus_sum, color=boro_name)) +
+  theme(legend.position="top") +
+  geom_histogram(bins=201) +
+  facet_wrap(~boro_name) +
+  labs(x = 'Surplus Count',
+       y = 'Number of Stations')
+
+```
+
+~~~~~
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```

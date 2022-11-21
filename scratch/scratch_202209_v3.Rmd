@@ -804,6 +804,10 @@ Of those 40, there is the ABAN, which means abandoned, several JC (Jersey City),
 ### now to try leaflet to color the station Ids
 
 ```{r}
+# Remove the NJ stations from this map
+```
+
+```{r}
 # Using basemaps for NYC
 m <- leaflet(data=station_surplus_count_coords) %>% 
 #  setView(zoom=12) %>%
@@ -1335,94 +1339,6 @@ plot(g_citi,
 ```{r}
 
 ```
-
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
 
 ~~~~~
 

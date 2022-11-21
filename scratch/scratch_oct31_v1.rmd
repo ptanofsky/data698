@@ -5,6 +5,7 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
+The only thing worthwhile in this document is the plot of one station that would capture the spikes of rebalancing and the inconsistency of that.
 
 ```{r libraries, echo=F, message=F, warning=F, include=F}
 # Required packages
