@@ -43,7 +43,7 @@ library(AER)
 
 ## Citi Bike Availability
 
-Words go here
+Can I avoid the below scenario?
 
 \begin{center}
   \includegraphics[width=0.5\textwidth, height=\textheight, keepaspectratio]{citibike_rack.jpg}
@@ -67,8 +67,8 @@ v2 is started at 1:30P on Sat, Nov 19
 
 ## Challenges and Assumptions
 
-- Too much data
-  - Over 10 million trips in 3 months
+- Large volume of data
+  - Over 10 million trips in 3 months under consideration
 - Rebalancing identification and not consistent
 - User friendly approach
   - Inputs to output
@@ -79,7 +79,7 @@ v2 is started at 1:30P on Sat, Nov 19
   - Download CSV file
   - API call every 15 minutes for two weeks
 - NYC Open Data
-  - Borough coordinates
+  - Borough shapes via GeoJSON files
 - Creating timetable of surplus/shortage
 
 ## Data Analysis
@@ -118,9 +118,9 @@ citibike$end.station.id[citibike$end.station.id  == ''] <- "ABAN"
 head(citibike)
 ```
 
-Ride Trips by Hour by User Type
+Bike Trips by Hour by User Type for Aug. - Oct. 2022
 
-```{r trip.by.hour.time.series, echo=F, message=F, warning=F, include=T, fig.width=7, fig.asp=1.0}
+```{r trip.by.hour.time.series, echo=F, message=F, warning=F, include=T, fig.width=7}
 
 citibike$started.at.ts <- as_datetime(as.character(citibike$started.at))
 
@@ -139,11 +139,17 @@ autoplot(citibike_by_hour_ts, cnt) +
        y = "Ride Trip Counts")
 ```
 
+```{r}
+dcmp <- citibike_by_hour_ts %>%
+  model(stl = STL(cnt))
+components(dcmp) %>% autoplot()
+```
+
 ## EDA: Weekly Seasonal Pattern
 
-Weekly seasonal plot of the 10 million bike trips 
+Weekly seasonal plot of the bike trips for Aug. - Oct. 2022
 
-```{r trip.by.hour.seasonal, echo=F, message=F, warning=F, include=T, fig.width=6, fig.asp=1.0}
+```{r trip.by.hour.seasonal, echo=F, message=F, warning=F, include=T, fig.width=7}
 citibike_by_hour_ts %>%
   gg_season(cnt, period = "week") +
   labs(x = "Time",
@@ -152,7 +158,8 @@ citibike_by_hour_ts %>%
 
 ## EDA: Three-Month Summary
 
-System-wide view of surplus or shortage for every docking station
+System-wide view of surplus or shortage for every NYC docking station
+
 - Blue: surplus; Red: shortage; Green: even
 
 \begin{center}
@@ -160,6 +167,8 @@ System-wide view of surplus or shortage for every docking station
 \end{center}
 
 ## EDA: Daily Pattern
+
+Time lapse of system-wide view of surplus or shortage for every NYC docking station
 
 Small multiples of Wednesday averaged for time lapse of 5A to 8P
 
@@ -173,14 +182,14 @@ Small multiples of Wednesday averaged for time lapse of 5A to 8P
 \subfloat[2 p.m.]{\includegraphics[width=3cm]{cb_stations_surplus_2P.jpg}}\hfil   
 \subfloat[5 p.m.]{\includegraphics[width=3cm]{cb_stations_surplus_5P.jpg}}\hfil
 \subfloat[8 p.m.]{\includegraphics[width=3cm]{cb_stations_surplus_8P.jpg}}
-\caption{Many figures}\label{figure}
+\caption{Average Wednesday}
 \end{figure}
 
 ## EDA: Rebalancing
 
 Example of inconsistent nature of rebalancing
 
-```{r display.station.reblance, echo=F, message=F, warning=F, include=T, fig.height=5}
+```{r display.station.reblance, echo=F, message=F, warning=F, include=T, fig.height=7}
 citibike_bike_avail <- fread("bike_avail_by_station_and_time.csv", data.table=FALSE, check.names=FALSE)
 
 citibike_bike_avail <- citibike_bike_avail %>%
@@ -206,27 +215,15 @@ p_rebalance_station
 
 ## Stations with Zero Bike Availability
 
-Frequency of zero bike availability by docking station
-- Two weeks
-- 15-minute intervals
+Frequency of zero bike availability per docking station in Brooklyn
 
-```{r display.bk.station.zero.avail, echo=F, message=F, warning=F, include=T, fig.height=5}
-img <- readJPEG("bk_stations_zero_avail.jpg")
-plot(1:10,ty="n", axes = 0, xlab='', ylab='', main='Brooklyn Docking Stations by Cluster')
-rasterImage(img,-1,-1,12,12)
-```
+- Span: Two weeks
+- Instance: 15-minute interval
 
-## Proposed Methodologies
+\begin{center}
+  \includegraphics[width=0.5\textwidth, height=\textheight, keepaspectratio]{bk_stations_zero_avail.jpg}
+\end{center}
 
-- Inputs
-  - Latitude and longitude
-  - Day of the Week
-  - Time of Day (15M and 1H)
-- Citi Bike offers live map of availability
-- Lyft provides real-time availability
-
-- Time series model not used explanation (or really, just don't include)
-- Poisson distribution and Negative Binomial given the over-dispersion
 
 ## Overview of Algorithm Approach
  
@@ -234,12 +231,31 @@ rasterImage(img,-1,-1,12,12)
   - Citi bike availability at each station
   - Two weeks is small interval to predict
     - Valid limitation of model
+- Cluster all the Brooklyn docking stations
+  - Distance: 400m (Quarter mile)
+- Apply Generalized Linear Models for Count Data
 
-## Bike Availability Frequency by Cluster (Brooklyn)
+## Proposed Methodologies
 
-Chart of availability based on 1HR intervals ... shows high frequency near 0 and 2 and plateaus at docking station capacities
+- Inputs
+  - Latitude and longitude
+    - Convert to cluster
+  - Day of the Week
+    - Convert to Weekday or Weekend day
+  - Time of Day (15M and 1H)
+- Citi Bike offers live map of availability
+- Lyft provides real-time availability
 
-```{r display.bk.freqOfZero.by.cluster, echo=F, message=F, warning=F, include=T, fig.height=5}
+- Time series model not used explanation (or really, just don't include)
+- Poisson distribution and Negative Binomial given the over-dispersion
+
+## Bike Availability Count Frequency by Cluster (Brooklyn)
+
+Histogram of availability based on 1HR intervals
+
+- High frequency near 0 and 2 and plateaus at docking station capacities
+
+```{r display.bk.freqOfZero.by.cluster, echo=F, message=F, warning=F, include=T, fig.width=7}
 # Read in the csv of the API responses which have been wrangled together
 stations_with_bike_avail <- read.csv('bike_avail_by_station_and_time.csv', row.names = 1, header= TRUE, check.names = FALSE)
 
@@ -382,30 +398,52 @@ p_distro_avail_counts
 
 ## Modeling Step 1: Clustering Model
 
-Clustering
-
-- Brooklyn
+- Borough: Brooklyn
 
 - Docking Stations: 474
 
 - Clusters: 2XX
 
-- Map of Clusters by Color
-
-```{r display.bk.station.by.cluster, echo=F, message=F, warning=F, include=T, fig.height=5}
-img <- readJPEG("bk_stations_by_cluster.jpg")
-plot(1:10,ty="n", axes = 0, xlab='', ylab='', main='Brooklyn Docking Stations by Cluster')
-rasterImage(img,-1,-1,12,12)
-```
-
+\begin{center}
+  \includegraphics[width=0.5\textwidth, height=\textheight, keepaspectratio]{bk_stations_by_cluster.jpg}
+\end{center}
 
 
 ## Modeling Step 2: Count Models
 
-Model Approaches
+Generalized Linear Models for Count Data
 
-- 6 models attempted
+- Poisson
+- Quasi-Poisson
+- Negative Binomial
+- Hurdle
+  - Poisson and Negative Binomial
+- Zero-Inflated
+  - Poisson and Negative Binomial
 
+Zero-Inflated
+
+$$
+Pr(Y = 0) = \pi + (1 - \pi)e^{-\lambda} \\
+Pr(Y = y{_i}) = (1 - \pi) \frac{\lambda^{y_i}e^{-\lambda}}{y_i!}, y_i = 1,2,3,...
+$$
+Poisson
+Probability mass function
+
+$$
+f(k; \lambda) = Pr(X=k) = \frac{\lambda^ke^{-\lambda}}{k!}, \\
+$$
+where
+- $k$ is the number of occurrences $(k = 0, 1, 2, ...)$
+- $e$ is Euler's number $( e = 2.71828...)$
+- $!$ is the factorial function
+
+Negative Binomial
+Probability mass funcgion
+
+$$
+f(k;r,p) \equiv Pr(X = k) = {k+r-1 \choose r-1}(1-p)^kp^r
+$$
 
 ## Model Results 15-Minute Interval
 
@@ -463,7 +501,6 @@ data.frame(models_15M, rmse_15M, mae_15M) %>%
   arrange(rmse_15M)
 
 ```
-
 
 
 - Certain input to model based on 15 minute intervals above
@@ -579,6 +616,10 @@ lines(round(pred_1H_zero_pois_plot),col="blue")
 - Model prediction
   - Show how it works
   
+```{r prediction.function.signature, eval=F, echo=T, message=F, warning=F, include=F}
+predict_num_bikes_avail <- function(longitude, latitude, time, day)
+```
+  
 ```{r prediction.function, eval=F, echo=F, message=F, warning=F, include=T}
 predict_num_bikes_avail <- function(longitude, latitude, time, day) {
   #longitude: -73.960859
@@ -604,16 +645,24 @@ predict_num_bikes_avail <- function(longitude, latitude, time, day) {
   
   return(num_bikes_avail)
 }
+```
 
+```{r prediction.one, eval=F, echo=T, message=F, warning=F, include=T}
 predict_num_bikes_avail(-73.960859, 40.67355, "08:30:00", "Sat")
 ```
 
+TODO
+
+```{r prediction.two, eval=F, echo=T, message=F, warning=F, include=T}
+predict_num_bikes_avail(-73.960859, 40.67355, "08:30:00", "Sat")
+```
 
 ## Current Achievements
 
-```{r current.achievements, echo=F, message=F, warning=F, include=T}
-
-```
+- Prediction model for Brooklyn
+  - Clustering
+  - Zero-Inflated XXX Pois/NB Model 
+- Capture patterns of Citi Bike usage
 
 ## Future Works
 
@@ -621,3 +670,5 @@ predict_num_bikes_avail(-73.960859, 40.67355, "08:30:00", "Sat")
 - Subway stations: Citi Bike offers valet 
 - Model of all NYC
 - Real-time clustering would be better
+- Greater amount of availability data
+
