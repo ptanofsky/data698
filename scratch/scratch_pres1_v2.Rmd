@@ -10,6 +10,7 @@ output:
     theme: "AnnArbor"
     colortheme: "default"
     fonttheme: "structurebold"
+header-includes: \usepackage{subfig, graphicx}
 
 ---
 
@@ -17,13 +18,36 @@ output:
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
+```{r libraries, echo=F, message=F, warning=F, include=F}
+# Required packages
+library(tidyverse)
+library(ggplot2)
+#library(skimr)
+library(lubridate)
+library(fpp3)
+#library(assertthat)
+#library(igraph)
+#library(ggraph)
+#library(ggmap)
+#library(leaflet)
+library(rgdal)
+library(RColorBrewer)
+library(jpeg)
+library(data.table)
+library(geosphere)
+library(Metrics)
+library(AER)
+#library(broom)
+
+```
+
 ## Citi Bike Availability
 
-```{r display.citibike.photo, echo=F, message=F, warning=F, include=T, fig.height=5}
-img <- readJPEG("citibike_rack.jpg")
-plot(1:10, ty="n", axes = 0)
-rasterImage(img,-1,-1,12,12)
-```
+Words go here
+
+\begin{center}
+  \includegraphics[width=0.5\textwidth, height=\textheight, keepaspectratio]{citibike_rack.jpg}
+\end{center}
 
 ## Problem and Objective
 
@@ -67,37 +91,15 @@ v2 is started at 1:30P on Sat, Nov 19
 
 ## EDA: Bike Trips by Hour
 
-```{r libraries, echo=F, message=F, warning=F, include=F}
-# Required packages
-library(tidyverse)
-library(ggplot2)
-#library(skimr)
-library(lubridate)
-library(fpp3)
-#library(assertthat)
-#library(igraph)
-#library(ggraph)
-#library(ggmap)
-#library(leaflet)
-library(rgdal)
-library(RColorBrewer)
-library(jpeg)
-library(data.table)
-library(geosphere)
-library(Metrics)
-library(AER)
-#library(broom)
-
-```
-
 ```{r read.trip.data, echo=F, message=F, warning=F, include=F, eval=T}
 # Create additional columns of pertinence
 # weekday, day of the month, trip duration in minutes, start hour
-citibike_202208 <- fread("data/202208-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
-citibike_202209 <- fread("data/202209-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
-citibike_202210 <- fread("data/202210-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
+#citibike_202208 <- fread("data/202208-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
+#citibike_202209 <- fread("data/202209-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
+#citibike_202210 <- fread("data/202210-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE) %>%
 
-citibike <- bind_rows(citibike_202208, citibike_202209, citibike_202210) %>%
+citibike <- fread("data/202210-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE) %>%
+#citibike <- bind_rows(citibike_202208, citibike_202209, citibike_202210) %>%
   mutate(day = factor(mday(ymd_hms(started_at))),
          start.hour=factor(hour(ymd_hms(started_at))),
          weekday = lubridate::wday(ymd_hms(started_at), label=TRUE, abbr=TRUE),
@@ -118,7 +120,7 @@ head(citibike)
 
 Ride Trips by Hour by User Type
 
-```{r trip.by.hour.time.series, echo=F, message=F, warning=F, include=T, fig.height=5}
+```{r trip.by.hour.time.series, echo=F, message=F, warning=F, include=T, fig.width=7, fig.asp=1.0}
 
 citibike$started.at.ts <- as_datetime(as.character(citibike$started.at))
 
@@ -141,7 +143,7 @@ autoplot(citibike_by_hour_ts, cnt) +
 
 Weekly seasonal plot of the 10 million bike trips 
 
-```{r trip.by.hour.seasonal, echo=F, message=F, warning=F, include=T, fig.height=5}
+```{r trip.by.hour.seasonal, echo=F, message=F, warning=F, include=T, fig.width=6, fig.asp=1.0}
 citibike_by_hour_ts %>%
   gg_season(cnt, period = "week") +
   labs(x = "Time",
@@ -153,37 +155,26 @@ citibike_by_hour_ts %>%
 System-wide view of surplus or shortage for every docking station
 - Blue: surplus; Red: shortage; Green: even
 
-```{r display.surplus.by.station, echo=F, message=F, warning=F, include=T, fig.height=5}
-img <- readJPEG("stations_surplus_sum.jpg")
-plot(1:10,ty="n", axes = 0, xlab='', ylab='')
-rasterImage(img,-1,-1,12,12)
-```
+\begin{center}
+  \includegraphics[width=0.5\textwidth, height=\textheight, keepaspectratio]{stations_surplus_sum.jpg}
+\end{center}
 
 ## EDA: Daily Pattern
 
 Small multiples of Wednesday averaged for time lapse of 5A to 8P
 
-```{r display.surplus.by.station.multiples, echo=F, message=F, warning=F, include=T, fig.height=5}
-par(mfrow=c(2,3))
-img_5A <- readJPEG("cb_stations_surplus_5A.jpg")
-img_8A <- readJPEG("cb_stations_surplus_8A.jpg")
-img_11A <- readJPEG("cb_stations_surplus_11A.jpg")
-img_2P <- readJPEG("cb_stations_surplus_2P.jpg")
-img_5P <- readJPEG("cb_stations_surplus_5P.jpg")
-img_8P <- readJPEG("cb_stations_surplus_8P.jpg")
-plot(1:10,ty="n", axes = 0, xlab='', ylab='', main='5 a.m.')
-rasterImage(img_5A,-1,-1,12,12)
-plot(1:10,ty="n", axes = 0, xlab='', ylab='', main='8 a.m.')
-rasterImage(img_8A,-1,-1,12,12)
-plot(1:10,ty="n", axes = 0, xlab='', ylab='', main='11 a.m.')
-rasterImage(img_11A,-1,-1,12,12)
-plot(1:10,ty="n", axes = 0, xlab='', ylab='', main='2 p.m.')
-rasterImage(img_2P,-1,-1,12,12)
-plot(1:10,ty="n", axes = 0, xlab='', ylab='', main='5 p.m.')
-rasterImage(img_5P,-1,-1,12,12)
-plot(1:10,ty="n", axes = 0, xlab='', ylab='', main='8 p.m.')
-rasterImage(img_8P,-1,-1,12,12)
-```
+\begin{figure}
+
+\centering
+\subfloat[5 a.m.]{\includegraphics[width=3cm]{cb_stations_surplus_5A.jpg}}\hfil
+\subfloat[8 a.m.]{\includegraphics[width=3cm]{cb_stations_surplus_8A.jpg}}\hfil 
+\subfloat[11 a.m.]{\includegraphics[width=3cm]{cb_stations_surplus_11A.jpg}} 
+
+\subfloat[2 p.m.]{\includegraphics[width=3cm]{cb_stations_surplus_2P.jpg}}\hfil   
+\subfloat[5 p.m.]{\includegraphics[width=3cm]{cb_stations_surplus_5P.jpg}}\hfil
+\subfloat[8 p.m.]{\includegraphics[width=3cm]{cb_stations_surplus_8P.jpg}}
+\caption{Many figures}\label{figure}
+\end{figure}
 
 ## EDA: Rebalancing
 

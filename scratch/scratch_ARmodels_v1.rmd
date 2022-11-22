@@ -1,0 +1,455 @@
+---
+title: "Scratch AR Count Models"
+author: "Philip Tanofsky"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r libraries, echo=F, message=F, warning=F, include=F}
+# Required packages
+library(tidyverse)
+library(ggplot2)
+#library(skimr)
+library(lubridate)
+library(fpp3)
+#library(assertthat)
+#library(igraph)
+#library(ggraph)
+#library(ggmap)
+#library(leaflet)
+library(rgdal)
+library(RColorBrewer)
+library(jpeg)
+library(data.table)
+library(geosphere)
+library(Metrics)
+library(AER)
+#library(broom)
+
+library(acp)
+library(tscount)
+library(glarma)
+
+```
+
+```{r}
+citibike_bike_avail <- read.csv('bike_avail_by_station_and_time.csv', row.names = 1, header= TRUE, check.names = FALSE)
+
+citibike_bike_avail
+```
+From metadata file
+
+```{r surplus.by.boro, echo=F, message=F, warning=F, include=T}
+stations_with_elevation <- read.csv('stations_with_elevation.csv', row.names = 1, header= TRUE)
+
+stations_with_boro_hood <- read.csv('stations_with_boro_and_hood.csv', row.names = 1, header= TRUE)
+
+# Combine the elevation, borough, neighborhood, and September surplus
+# First let's trim the DF for elevation
+stations_with_elevation_trim <- stations_with_elevation %>%
+  dplyr::select(short_name, station_id, elevation, elev_units)
+
+stations_with_boro_hood_trim <- stations_with_boro_hood %>%
+  dplyr::select(short_name, name, station_id, capacity, ntaname, boro_name, lon, lat)
+
+stations_attrs_trim <- 
+  merge(stations_with_elevation_trim, 
+        stations_with_boro_hood_trim, 
+        by.x=c('short_name'), 
+        by.y=c('short_name'), all = TRUE)
+
+stations_attrs_trim <- stations_attrs_trim %>%
+  dplyr::select(-station_id.y)
+
+colnames(stations_attrs_trim)[colnames(stations_attrs_trim) == 'station_id.x'] <- 'station_id'
+
+stations_attrs_trim[c("boro_name")][is.na(stations_attrs_trim[c("boro_name")])] <- "New Jersey"
+
+stations_attrs_trim <- 
+  stations_attrs_trim %>% 
+  mutate(ntaname = ifelse(startsWith(short_name, "JC"), "Jersey City", ntaname))
+
+stations_attrs_trim <- 
+  stations_attrs_trim %>% 
+  mutate(ntaname = ifelse(startsWith(short_name, "HB"), "Hoboken", ntaname))
+
+stations_attrs_trim <- stations_attrs_trim %>%
+  rename(short.name=short_name, station.id=station_id, elev.units=elev_units, nta.name=ntaname, boro.name=boro_name)
+  
+
+head(stations_attrs_trim)
+```
+
+```{r}
+stations_attrs_trim_bk <- stations_attrs_trim %>%
+  filter(boro.name == "Brooklyn")
+(stations_attrs_trim_bk)
+```
+
+```{r}
+# Let's try the clustering
+# https://www.r-bloggers.com/2019/06/hierarchical-clustering-for-location-based-strategy-using-r-for-e-commerce/
+
+# Distance matrix for docking stations
+# Result is in meters
+dist_mat <- distm(stations_attrs_trim_bk[9:10], stations_attrs_trim_bk[9:10], fun=distHaversine)
+dist_mat <- as.data.frame(dist_mat)
+dist_mat[is.na(dist_mat)] <- 0
+dMat <- as.dist(dist_mat)
+dMat[1:10]
+```
+
+```{r}
+# Now for the clustering
+hier_clust <- hclust(dMat, method = "complete")
+# 400 meters is about a quarter of a mile (0.248548 miles)
+stations_attrs_trim_bk$cluster <- cutree(hier_clust, h=400)
+
+head(stations_attrs_trim_bk)
+```
+
+```{r}
+stations_with_bike_avail_long <- citibike_bike_avail %>%
+  pivot_longer(!timestamp, names_to = "station.id", values_to = "bikes.avail.count")
+stations_with_bike_avail_long
+```
+```{r}
+station_to_cluster <- stations_attrs_trim_bk %>%
+  dplyr::select(station.id, cluster, elevation, capacity)
+
+(station_to_cluster)
+```
+
+```{r}
+# Merge long df with counts with station.id and cluster to label clusters properly
+stations_bike_avail_by_time <- 
+  merge(stations_with_bike_avail_long, 
+        station_to_cluster, 
+        by.x=c('station.id'), 
+        by.y=c('station.id'), all.x = TRUE)
+```
+
+```{r}
+stations_bike_avail_by_time_no_na <- stations_bike_avail_by_time %>%
+  filter(!is.na(cluster))
+
+stations_bike_avail_by_time_no_na
+```
+
+```{r}
+#stations_bike_avail_by_time_no_na_group <- aggregate(cbind(bikes.avail.count, elevation, capacity) ~ timestamp + cluster, data = stations_bike_avail_by_time_no_na, FUN = sum, na.rm = TRUE)
+
+#df2 <- df1 %>% group_by(year, month) %>% summarise_at(vars(x1, x2), sum)
+
+stations_bike_avail_by_time_no_na_group_sum <- stations_bike_avail_by_time_no_na %>%
+  group_by(timestamp, cluster) %>%
+  summarize_at(vars(bikes.avail.count, capacity), sum)
+
+stations_bike_avail_by_time_no_na_group_mean <- stations_bike_avail_by_time_no_na %>%
+  group_by(timestamp, cluster) %>%
+  summarise_at(vars(elevation), mean)
+```
+
+```{r}
+stations_bike_avail_by_time_no_na_group_sum
+```
+
+```{r}
+stations_bike_avail_by_time_no_na_group_mean
+```
+
+```{r}
+stations_bike_avail_by_time_no_na_group <- cbind(stations_bike_avail_by_time_no_na_group_sum, stations_bike_avail_by_time_no_na_group_mean[3])
+```
+
+```{r}
+# This has timestamp, cluster number and bikes.avail.count
+stations_bike_avail_by_time_no_na_group
+```
+
+```{r}
+# mutate to convert timestamp into day of the week, etc.
+stations_bike_avail_by_time_no_na_group <- stations_bike_avail_by_time_no_na_group %>%
+  mutate(time=as.ITime(ymd_hms(timestamp)),
+         weekday = lubridate::wday(ymd_hms(timestamp),label=TRUE,abbr=TRUE))
+```
+
+```{r}
+stations_bike_avail_by_time_no_na_group
+```
+```{r}
+stations_bike_avail_by_time_no_na_group$cluster <- as.factor(stations_bike_avail_by_time_no_na_group$cluster)
+stations_bike_avail_by_time_no_na_group$time <- as.factor(stations_bike_avail_by_time_no_na_group$time)
+stations_bike_avail_by_time_no_na_group$weekday <- factor(stations_bike_avail_by_time_no_na_group$weekday, ordered=FALSE)
+
+stations_bike_avail_by_time_no_na_group
+```
+```{r}
+stations_bike_avail_by_time_no_timestamp <- subset(stations_bike_avail_by_time_no_na_group, select=-c(timestamp))
+```
+
+```{r}
+stations_bike_avail_by_time_no_timestamp
+```
+```{r}
+# Only use rows on the hour
+stations_bike_avail_by_time_1H <- stations_bike_avail_by_time_no_timestamp %>%
+  filter(endsWith(as.character(time), "00:00"))
+```
+
+```{r}
+stations_bike_avail_by_time_1H
+```
+
+```{r}
+stations_bike_avail_by_time_1H <- stations_bike_avail_by_time_1H %>%
+  mutate(day = ifelse(weekday %in% c('Sat', 'Sun'), 'WKND', 'WDAY'))
+stations_bike_avail_by_time_1H
+```
+
+```{r}
+# Start with data partition here.
+set.seed(8675309)
+index <- sample(2, nrow(stations_bike_avail_by_time_1H), replace = TRUE, p=c(0.75, 0.25))
+train_1H <- stations_bike_avail_by_time_1H[index==1,]
+test_1H <- stations_bike_avail_by_time_1H[index==2,]
+```
+
+```{r}
+# Sample Variance is 313
+var(stations_bike_avail_by_time_1H$bikes.avail.count)
+n <- length(stations_bike_avail_by_time_1H)
+# Population variance
+var(stations_bike_avail_by_time_1H$bikes.avail.count)*(n-1)/n
+# Mean is 13
+mean(stations_bike_avail_by_time_1H$bikes.avail.count)
+
+# Overdispersion exists
+```
+
+```{r}
+mod_1H_pois <- glm(bikes.avail.count ~ cluster + time + day, data = train_1H, family ="poisson")
+summary(mod_1H_pois)
+```
+
+```{r}
+pred_1H_pois <- predict.glm(mod_1H_pois, newdata = test_1H, type = "response")
+rmse_mod_1H_pois <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1H_pois))
+mae_mod_1H_pois <- mae(test_1H$bikes.avail.count,round(pred_1H_pois))
+rmse_mod_1H_pois
+mae_mod_1H_pois
+```
+
+75% Training
+[1] 11.55705
+[1] 8.2849
+
+80% Training
+Each day of the week
+[1] 11.5538
+[1] 8.301931
+
+WDAY v WKND (without elevation)
+[1] 11.5658
+[1] 8.310316
+
+```{r}
+plot(test_1H$bikes.avail.count[300:400],type = "b",col="red")
+lines(round(pred_1H_pois[300:400]),col="blue")
+```
+
+```{r}
+perfect.mod.R2 <- cor(mod_1H_pois$fitted.values, train_1H$bikes.avail.count)^2
+perfect.mod.R2
+```
+
+```{r}
+perfect.mod.test.R2 <- cor(pred_1H_pois, test_1H$bikes.avail.count)^2
+
+perfect.mod.test.R2
+```
+
+```{r}
+Overfitting.perfect.mod <- perfect.mod.R2 - perfect.mod.test.R2
+
+Overfitting.perfect.mod
+```
+
+```{r}
+#mod_1H_pois$residuals
+
+plot(mod_1H_pois$fitted.values, mod_1H_pois$residuals)
+```
+
+```{r}
+glance(mod_1H_pois)
+```
+
+
+```{r}
+dispersiontest(mod_1H_pois)
+# This indicates dispersion
+```
+
+```{r}
+# Check if the model fits the data, this is the null hypothesis.
+with(
+  mod_1H_pois,
+  cbind(
+    res.deviance = deviance,
+    df = df.residual,
+    p = pchisq(deviance, df.residual, lower.tail = FALSE)
+  )
+)
+```
+
+```{r}
+# Predition function: Right now it uses mod1 as the model!!!
+predict_num_bikes_avail <- function(longitude, latitude, time, day) {
+  #longitude: -73.960859
+  #latitude: 40.67355
+  #time: "07:30:00"
+  #day: "Mon"
+  
+  # Convert lon/lat to cluster
+  location <- data.frame(matrix(nrow = 1,data = c(longitude, latitude)))
+  closest_station <- nn2(stations_attrs_trim_bk[, 9:10], query=location, k=1)
+  inp_cluster <- stations_attrs_trim_bk[closest_station$nn.idx,]$cluster
+
+  #print(inp_cluster)
+  
+  # Create input for prediction
+  bike_avail_query <- data.frame(matrix(nrow = 1,data = c(inp_cluster, 0, time, day)))
+  colnames(bike_avail_query) <- c("cluster", "bikes.avail.count", "time", "day")
+
+  # Predict using Model: mod1
+  num_bikes_avail <- predict.glm(mod_1H_pois, newdata = bike_avail_query, type = "response")
+  # Take floor of prediction to ensure whole number
+  num_bikes_avail <- as.integer(floor(num_bikes_avail))
+  
+  return(num_bikes_avail)
+}
+```
+
+
+
+```{r}
+predict_num_bikes_avail(-73.960859, 40.67355, "22:00:00", "WDAY")
+```
+
+```{r}
+mod_1H_pois$coefficients
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+~~~~~
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
