@@ -1,5 +1,5 @@
 ---
-title: "Predicting Citi Bike Availability in NYC"
+title: "Predicting Citi Bike Availability in Brooklyn"
 subtitle: |
   | DATA 698 Research Project
   | CUNY Fall 2022
@@ -43,7 +43,7 @@ library(kableExtra)
 
 ## Citi Bike Availability
 
-Predict the count to avoid the empty racks
+Predict bike availability to avoid the empty racks
 
 \begin{figure}
   \centering
@@ -54,45 +54,35 @@ Predict the count to avoid the empty racks
   \includegraphics[width=0.35\textwidth, height=\textheight, keepaspectratio]{cb_empty_rack_04.JPG}
 \end{figure}
 
-## Problem and Objective
+## Problem and Objectives
 
-v3: started 11:30A on Nov 22, 2022
+Problem
 
-Introduce yourselves and describe your problem.
-Explain your objectives, challenges of your work, proposed methodologies, and the assumptions you made while conducting modeling and/or analysis.
-Provide an overview of your approach and/or conceptual model (please do not present your code directly). 
-Describe the results you obtain and summarize the current achievements and possibility of future works.
+- Citi Bike offers live map of availability and the Lyft app provides real-time availability for immediate bike rental but the availability of a bike at a location at a future date and time is not guaranteed
+
+Objectives:
+
+- Understand Citi Bike usage and availability patterns across New York City
+
+- Predict the number of available bikes in Brooklyn within a quarter mile of a given location with user-friendly inputs
 
 
 ## Previous Work
 
-- bullet 1
-- bullet 2
-- bullet 3
-- bullet 4
-
-## Challenges and Assumptions
-
-Large volume of data
-
-- Over 10 million trips in 3 months under consideration
-- Over 1650 docking stations in NYC
-
-Rebalancing
-
-- System action of moving bikes to restock docking stations
-- Identification and inconsistency
-
-User-friendly availability prediction
-
-- Independent variables to prediction model
-- End-user input values
+- Wang, Lindsey, Schoner, and Harrison (2016)
+  - Log-linear and negative binomial regression models
+- Wang and Chen 
+  - Zero-inflated negative binomial regression model
+- Hyland, Hong, Pinto and Chen
+  - Hybrid clustering and regression models
+- Médard de Chardon, Caruso, and Thomas
+  - Rebalancing evaluation
   
 ## Data Collection
 
 Citi Bike System Data
 
-- Download CSV file
+- Download CSV files for each month
 - API call every 15 minutes for two weeks
 
 NYC Open Data
@@ -107,20 +97,38 @@ Surplus/Shortage Timetable
 
 - Convert trip data to dataframe of bike departure and arrival counts by docking station for a given time interval
 
-## Data Analysis
+## Data Statistics
 
 Ridership patterns
 
-  - Timeframe: August - October 2022 (92 days)
+  - Timeframe: August - October of 2022 (92 days)
   - Location: New York City departing trips
   - Number of trips: 10,210,102
-  - Stations: 1,717
+  - Docking Stations: 1,717
   - Abandoned trips: 24,887
 
 Bike Availability
 
-  - Timeframe: Oct. 31 - Nov. 13 (14 days)
+  - Timeframe: Oct. 31 - Nov. 13 of 2022 (14 days)
   - Location: Brooklyn
+  - Docking Stations: 474
+  
+## Challenges
+
+Large volume of data
+
+- Over 10 million trips in 3 months
+- Over 1700 docking stations in NYC
+
+Rebalancing
+
+- System action of moving bikes to restock docking stations
+- Identification and inconsistency
+
+User-friendly availability prediction
+
+- Independent variables to prediction model
+- End-user input values
 
 ## EDA: Bike Trips by Hour
 
@@ -175,11 +183,6 @@ autoplot(citibike_by_hour_ts, cnt) +
 
 ```
 
-```{r}
-dcmp <- citibike_by_hour_ts %>%
-  model(stl = STL(cnt))
-components(dcmp) %>% autoplot()
-```
 
 ## EDA: Weekly Seasonal Pattern
 
@@ -236,12 +239,14 @@ Time lapse of surplus or shortage for every NYC docking station
 
 
 ## Overview of Algorithm Approach
- 
-Data Source
 
-- Data from API call every 15 minutes for two weeks
-- Citi bike availability at each station
-- Two weeks is small interval to predict
+Goal: Predict number of available  bikes in Brooklyn within quarter mile
+
+Inputs
+
+- Latitude and longitude (location on map)
+- Day of the Week
+- Time of Day
 
 Step 1: Hierarchical Clustering
 
@@ -249,13 +254,14 @@ Step 1: Hierarchical Clustering
   - Distance: 400m (Quarter mile)
   
 Step 2: Apply Generalized Linear Models
-- Predict count data
--
+
+- Predict number of bikes available per cluster
+  - Count Models: Poisson, Negative Binomial, Zero-Inflated
 
 
 ## Stations with Zero Bike Availability
 
-Frequency of zero bike availability per docking station in Brooklyn
+Frequency of zero bikes available per docking station in Brooklyn
 
 - Span: Two weeks
 - Instance: 15-minute interval
@@ -294,23 +300,32 @@ p_rebalance_station
 
 ## Proposed Methodologies
 
-- Inputs
-  - Latitude and longitude
-    - Convert to cluster
-  - Day of the Week
-    - Convert to Weekday or Weekend day
-  - Time of Day (15M and 1H)
-- Citi Bike offers live map of availability
-- Lyft provides real-time availability
+Predictors
 
-- Time series model not used explanation (or really, just don't include)
-- Poisson distribution and Negative Binomial given the over-dispersion
+- Latitude and longitude converted to cluster
+- Day of the Week converted to 'Weekday' or 'Weekend'
+- Time of Day in 1-hour intervals
+- Average elevation of cluster omitted
+
+Model Methodologies
+
+- Selected: Generalized Linear Model for Counts
+  - Poisson Regression Assumptions:
+    - Response variable is count per unit of time
+    - Independence: Observations are independent in nature
+    - Mean equal to Variance: Not true
+
+- Alternate Consideration: Time Series Model
+  - Forecasting does not provide instance prediction
+  - Not easily translatable from user-friendly inputs
+  - Requires constantly up-to-date info to forecast from given point in time
+
 
 ## Modeling Step 1: Clustering Model
 
 - Borough: Brooklyn
 - Docking Stations: 474
-- Clusters: 213
+- Clusters: 213 (2.23 stations/cluster)
 
 \begin{center}
   \includegraphics[width=0.5\textwidth, height=\textheight, keepaspectratio]{bk_stations_by_cluster.jpg}
@@ -440,8 +455,9 @@ p_distro_avail_counts <- tab_1H_df %>%
   ggplot(aes(x=Var1, y=Freq)) +
   geom_bar(stat="identity") +
   labs(x='Availability Count',
-       y='Frequency',
-       title='Frequency of Hourly Available Bike Counts for Brooklyn Clusters')
+       y='Frequency')
+#  title='Frequency of Hourly Available Bike Counts for Brooklyn Clusters'
+
 # Display plot
 p_distro_avail_counts
 ```
@@ -451,40 +467,33 @@ p_distro_avail_counts
 
 Generalized Linear Models for Count Data
 
+5 Models Attempted
+
 - Poisson
+  - `stats` library
 - Quasi-Poisson
+  - `stats` library
 - Negative Binomial
-- Hurdle
-  - Poisson and Negative Binomial
+  - `MASS` library
 - Zero-Inflated
   - Poisson and Negative Binomial
+  - `pscl` library
+  
 
-Zero-Inflated
+```{r}
+stations_bike_avail_by_time_1H_imp <- stations_bike_avail_by_time_1H
 
-\begin{equation} 
-Pr(Y = 0) = \pi + (1 - \pi)e^{-\lambda}
-\end{equation} 
-\begin{equation} 
-Pr(Y = y{_i}) = (1 - \pi) \frac{\lambda^{y_i}e^{-\lambda}}{y_i!}, y_i = 1,2,3,...
-\end{equation} 
 
-Poisson
-Probability mass function
+#71568 rows total in the train set
+#2992 in which the bikes.avail.count greater than capacity
+#125 clusters have avail greater than capacity
 
-\begin{equation} 
-f(k; \lambda) = Pr(X=k) = \frac{\lambda^ke^{-\lambda}}{k!},
-\end{equation} 
-where
-- $k$ is the number of occurrences $(k = 0, 1, 2, ...)$
-- $e$ is Euler's number $( e = 2.71828...)$
-- $!$ is the factorial function
-
-Negative Binomial
-Probability mass funcgion
-
-\begin{equation} 
-f(k;r,p) \equiv Pr(X = k) = {k+r-1 \choose r-1}(1-p)^kp^r
-\end{equation} 
+# Impute the available bike count to match the capacity
+stations_bike_avail_by_time_1H_imp$bikes.avail.count <- ifelse(stations_bike_avail_by_time_1H_imp$bikes.avail.count >
+                                                        stations_bike_avail_by_time_1H_imp$capacity,
+                                                      stations_bike_avail_by_time_1H_imp$capacity,
+                                                      stations_bike_avail_by_time_1H_imp$bikes.avail.count)
+```
 
 
 ## Model Results 1-Hour Interval
@@ -498,7 +507,8 @@ f(k;r,p) \equiv Pr(X = k) = {k+r-1 \choose r-1}(1-p)^kp^r
 
 # Start with data partition here.
 set.seed(8675309)
-index <- sample(2, nrow(stations_bike_avail_by_time_1H), replace = TRUE, p=c(0.75, 0.25))
+index <- sample(2, nrow(stations_bike_avail_by_time_1H_imp), replace = TRUE, p=c(0.75, 0.25))
+#index <- sample(2, nrow(stations_bike_avail_by_time_1H), replace = TRUE, p=c(0.75, 0.25))
 train_1H <- stations_bike_avail_by_time_1H[index==1,]
 test_1H <- stations_bike_avail_by_time_1H[index==2,]
 
@@ -513,41 +523,50 @@ mean(stations_bike_avail_by_time_1H$bikes.avail.count)
 # Overdispersion exists
 
 mod_1H_pois <- glm(bikes.avail.count ~ cluster + time + day, data = train_1H, family ="poisson")
-summary(mod_1H_pois)
+#summary(mod_1H_pois)
 
-dispersiontest(mod_1H_pois)
+#dispersiontest(mod_1H_pois)
 
+# Taking the floor as that is the actual available bikes, no partial bikes
 pred_1H_pois <- predict.glm(mod_1H_pois, newdata = test_1H, type = "response")
-rmse_mod_1H_pois <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1H_pois))
-mae_mod_1H_pois <- mae(test_1H$bikes.avail.count,round(pred_1H_pois))
+rmse_mod_1H_pois <- ModelMetrics::rmse(test_1H$bikes.avail.count,floor(pred_1H_pois))
+mae_mod_1H_pois <- mae(test_1H$bikes.avail.count,floor(pred_1H_pois))
 
 mod_1H_qp <- glm(bikes.avail.count ~ cluster + time + day, data = train_1H, family ="quasipoisson")
-summary(mod_1H_qp)
+#summary(mod_1H_qp)
 
 pred_1H_qp <- predict.glm(mod_1H_qp, newdata=test_1H, type = "response")
-rmse_mod_1H_qp <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1H_qp))
-mae_mod_1H_qp <- mae(test_1H$bikes.avail.count,round(pred_1H_qp))
+rmse_mod_1H_qp <- ModelMetrics::rmse(test_1H$bikes.avail.count,floor(pred_1H_qp))
+mae_mod_1H_qp <- mae(test_1H$bikes.avail.count,floor(pred_1H_qp))
 
 mod_1H_nb <- glm.nb(bikes.avail.count ~ cluster + time + day, data=train_1H)
-summary(mod_1H_nb)
+#summary(mod_1H_nb)
 
 pred_1H_nb <- predict.glm(mod_1H_nb, newdata=test_1H, type = "response")
-rmse_mod_1H_nb <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1H_nb))
-mae_mod_1H_nb <- mae(test_1H$bikes.avail.count,round(pred_1H_nb))
+rmse_mod_1H_nb <- ModelMetrics::rmse(test_1H$bikes.avail.count,floor(pred_1H_nb))
+mae_mod_1H_nb <- mae(test_1H$bikes.avail.count,floor(pred_1H_nb))
 
 mod_1H_zero_pois <- zeroinfl(bikes.avail.count ~ cluster + time + day, data=train_1H, dist = "poisson")
-summary(mod_1H_zero_pois)
+#summary(mod_1H_zero_pois)
 
 pred_1H_zero_pois <- predict(mod_1H_zero_pois, newdata=test_1H,type = "response")
-rmse_mod_1H_zero_pois <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1H_zero_pois))
-mae_mod_1H_zero_pois <- mae(test_1H$bikes.avail.count,round(pred_1H_zero_pois))
+rmse_mod_1H_zero_pois <- ModelMetrics::rmse(test_1H$bikes.avail.count,floor(pred_1H_zero_pois))
+mae_mod_1H_zero_pois <- mae(test_1H$bikes.avail.count,floor(pred_1H_zero_pois))
 
 mod_1H_zero_nb <- zeroinfl(bikes.avail.count ~ cluster + time + day, data=train_1H,dist = "negbin")
-summary(mod_1H_zero_nb)
+#summary(mod_1H_zero_nb)
 
 pred_1H_zero_nb <- predict(mod_1H_zero_nb, newdata=test_1H ,type = "response")
-rmse_mod_1H_zero_nb <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1H_zero_nb))
-mae_mod_1H_zero_nb <- mae(test_1H$bikes.avail.count,round(pred_1H_zero_nb))
+rmse_mod_1H_zero_nb <- ModelMetrics::rmse(test_1H$bikes.avail.count,floor(pred_1H_zero_nb))
+mae_mod_1H_zero_nb <- mae(test_1H$bikes.avail.count,floor(pred_1H_zero_nb))
+
+# Hurdle
+#mod_1H_hurd_pois <- hurdle(bikes.avail.count ~ cluster + time + day, data=train_1H, dist = "poisson")
+#summary(mod_1H_hurd_pois)
+
+#pred_1H_hurd_pois <- predict(mod_1H_hurd_pois, newdata=test_1H, type = "response")
+#rmse_mod_1H_hurd_pois < -ModelMetrics::rmse(test_1H$bikes.avail.count,floor(pred_1H_hurd_pois))
+#mae_mod_1H_hurd_pois <- mae(test_1H$bikes.avail.count,floor(pred_1H_hurd_pois))
 
 rmse_1H <- c(rmse_mod_1H_pois, rmse_mod_1H_qp, rmse_mod_1H_nb,
 #             rmse_mod_1H_hur_pois, rmse_mod_1H_hu_nb,
@@ -555,6 +574,10 @@ rmse_1H <- c(rmse_mod_1H_pois, rmse_mod_1H_qp, rmse_mod_1H_nb,
 mae_1H <- c(mae_mod_1H_pois, mae_mod_1H_qp, mae_mod_1H_nb,
 #            mae_mod_1H_hur_pois, mae_mod_1H_qp,
             mae_mod_1H_zero_pois, mae_mod_1H_zero_nb)
+
+aic_1H <- c(mod_1H_pois$aic, mod_1H_qp$aic, mod_1H_nb$aic,
+#            mae_mod_1H_hur_pois, mae_mod_1H_qp,
+            mod_1H_zero_pois$loglik, mod_1H_zero_nb$loglik)
 
 models_1H <- c("Poisson","Quasi-Poisson","Negative Binomial",
 #               "h_pois","h_nb",
@@ -564,37 +587,133 @@ models_1H <- c("Poisson","Quasi-Poisson","Negative Binomial",
 #  arrange(rmse_1H)
 ```
 
+```{r model.preds.dataframe, eval=T, echo=F, message=F, warning=F, include=F}
+df_for_plot <- as.data.frame(cbind(test_1H, 
+                                   floor(pred_1H_pois),
+                                   floor(pred_1H_qp),
+                                   floor(pred_1H_nb),
+                                   floor(pred_1H_zero_pois),
+                                   floor(pred_1H_zero_nb))) %>%
+  rename(Actual='bikes.avail.count', Pois.Prediction=8, QPois.Prediction=9, 
+         NB.Prediction=10, Zero.Pois.Prediction=11, Zero.NB.Prediction=12)
+
+df_for_plot$Actual <- as.integer(df_for_plot$Actual)
+df_for_plot$Pois.Prediction <- as.integer(df_for_plot$Pois.Prediction)
+df_for_plot$QPois.Prediction <- as.integer(df_for_plot$QPois.Prediction)
+df_for_plot$NB.Prediction <- as.integer(df_for_plot$NB.Prediction)
+df_for_plot$Zero.Pois.Prediction <- as.integer(df_for_plot$Zero.Pois.Prediction)
+df_for_plot$Zero.NB.Prediction <- as.integer(df_for_plot$Zero.NB.Prediction)
+
+miss_zero_pois <- df_for_plot %>%
+  filter(Pois.Prediction > 0 & Actual == 0) %>%
+  count()
+miss_zero_qp <- df_for_plot %>%
+  filter(QPois.Prediction > 0 & Actual == 0) %>%
+  count()
+miss_zero_nb <- df_for_plot %>%
+  filter(NB.Prediction > 0 & Actual == 0) %>%
+  count()
+miss_zero_z_p <- df_for_plot %>%
+  filter(Zero.Pois.Prediction > 0 & Actual == 0) %>%
+  count()
+miss_zero_z_nb <- df_for_plot %>%
+  filter(Zero.NB.Prediction > 0 & Actual == 0) %>%
+  count()
+
+miss_zero_1H <- c(miss_zero_pois, miss_zero_qp, miss_zero_nb,
+            miss_zero_z_p, miss_zero_z_nb)
+```
+
 ```{r table.model.results, eval=T, echo=F, message=F, warning=F, include=T}
-data.frame(Models=models_1H, RMSE=rmse_1H, MAE=mae_1H)%>% 
+data.frame(Model=models_1H, RMSE=rmse_1H, MAE=mae_1H, `Missed Zero`=miss_zero_1H) %>% 
   arrange(rmse_1H) %>% kable() %>%
   kable_paper("hover", full_width = F)
 ```
 
+17715 rows for Prediction vs Actual
+
+Poisson and QP predicted a higher number of Zero compared to Zero inflated, but because the zero is in line with the overall distribution, shouldn't be too surprised.
+
+Zero Poisson with floor
+(Prediction>0 & Actual==0) is 280
+Zero NB
+(Prediction>0 & Actual==0) is 280
+Poisson
+(Prediction>0 & Actual==0) is 263
+QP
+(Prediction>0 & Actual==0) is 263
+NB
+(Prediction>0 & Actual==0) is 263
+
+Hurdle Poisson with floor
+(Prediction>0 & Actual==0) is 282
+
+
+
+397 rows in which actual availability is zero
+Zero Pois
+
+8 Clusters have a Prediction > 0 but Actual of 0 with basic Poisson model
+
+- Poisson regression equation
+
+\begin{equation} 
+log(bikes) = \alpha + \beta_1\cdot cluster + \beta_2 \cdot time + \beta_3 \cdot day
+\end{equation} 
+
+Criteria, overall each model works well, but the Poisson has the highest number of predicted Zeros and slighter lower count of Prediction greater than 0 while the Actual is 0. Given this would be the frustrating for user, primary deciding criteria is the ability to predict 0 with accuracy
+
+58 cluster coefficients greater than zero
+154 clusters with coefficient less than zero
+
+7 time coefficients with value greater than zero (morning times)
+16 time coefficients with value less than zero
+
+1 day coefficient less than zero (weekend)
+
+
 ## Model Results Visualization
 
-- Plot of the preds and actuals for best scoring model (Zero Poisson)
+Plot subset of Predicted vs Actual counts for select model - Poisson
+
+- Blue: Prediction; Red: Actual
 
 ```{r display.top.model.preds, eval=T, echo=F, message=F, warning=F, include=T, fig.height=5}
-plot(test_1H$bikes.avail.count[1:300],type = "b",col="red")
-lines(round(pred_1H_zero_pois[1:300]),col="blue")
+# Modify the number of rows to consider
+# 17715 rows in DF
+df_for_plot_trim <- df_for_plot[500:600,]
+
+p_pred_vs_actual <- ggplot() + 
+  geom_line(data = df_for_plot_trim, aes(x = 1:nrow(df_for_plot_trim), y = Pois.Prediction), color = "blue") +
+  geom_line(data = df_for_plot_trim, aes(x = 1:nrow(df_for_plot_trim), y = Actual), color = "red") +
+  xlab('Sample Index') +
+  ylab('Available Bike Count')
+
+p_pred_vs_actual
 ```
 
 
 ## Availability Prediction
 
-- Model prediction
-  - Show how it works
-  
-```{r prediction.function.signature, eval=F, echo=T, message=F, warning=F, include=F}
-predict_num_bikes_avail <- function(longitude, latitude, time, day)
+Model prediction inputs
+
+- Longitude and Latitude (GPS location of smartphone)
+- Hour of the day (dropdown proposed)
+- Weekday or Weekend (dropdown proposed)
+
+```{r prediction.function.signature, eval=T, echo=F, message=F, warning=F, include=T}
+predict_num_bikes_avail <- function(longitude, latitude, time, day) {}
 ```
   
 ```{r prediction.function, eval=T, echo=F, message=F, warning=F, include=T}
 predict_num_bikes_avail <- function(longitude, latitude, time, day) {
-  #longitude: -73.960859
-  #latitude: 40.67355
-  #time: "07:30:00"
-  #day: "Mon"
+  #longitude: -73.960859 (in Brooklyn with quarter mile of docking station)
+  #latitude: 40.67355 (in Brooklyn with quarter mile of docking station)
+  #time: "00:00:00"|"01:00:00"|"02:00:00"|"03:00:00"|"04:00:00"|"05:00:00"|
+  #      "06:00:00"|"07:00:00"|"08:00:00"|"09:00:00"|"10:00:00"|"11:00:00"|
+  #      "12:00:00"|"13:00:00"|"14:00:00"|"15:00:00"|"16:00:00"|"17:00:00"|
+  #      "18:00:00"|"19:00:00"|"20:00:00"|"21:00:00"|"22:00:00"|"23:00:00"|
+  #day: "WKND"|"WDAY"
   
   # Convert lon/lat to cluster
   location <- data.frame(matrix(nrow = 1,data = c(longitude, latitude)))
@@ -612,34 +731,54 @@ predict_num_bikes_avail <- function(longitude, latitude, time, day) {
   # Take floor of prediction to ensure whole number
   num_bikes_avail <- as.integer(floor(num_bikes_avail))
   
-  return(num_bikes_avail)
+  return(c(num_bikes_avail, inp_cluster))
 }
 ```
 
-```{r prediction.one, eval=T, echo=T, message=F, warning=F, include=T}
-predict_num_bikes_avail(-73.960859, 40.67355, "22:00:00", "WDAY")
+```{r prediction.one, eval=T, echo=F, message=F, warning=F, include=T}
+# Crown Heights
+prediction_CH <- predict_num_bikes_avail(-73.960859, 40.67355,
+                        "22:00:00", "WDAY")
+
+print(paste0("Crown Heights - Available Bikes: ", prediction_CH[1], "; Cluster: ", prediction_CH[2]))
 ```
 
-TODO
+```{r prediction.two, eval=T, echo=F, message=F, warning=F, include=T}
+# Williamsburg
+prediction02_WB <- predict_num_bikes_avail(-73.9617, 40.7192,
+                        "18:00:00", "WKND")
 
-```{r prediction.two, eval=T, echo=T, message=F, warning=F, include=T}
-predict_num_bikes_avail(-73.960859, 40.67355, "08:00:00", "WKND")
+print(paste0("Williamsburg - Available Bikes: ", prediction02_WB[1], "; Cluster: ", prediction02_WB[2]))
 ```
 
+```{r prediction.three, eval=T, echo=F, message=F, warning=F, include=T}
+# Sunset Park
+prediction02_SP <- predict_num_bikes_avail(-74.00509, 40.64338,
+                        "17:00:00", "WDAY")
+
+print(paste0("Sunset Park - Available Bikes: ", prediction02_SP[1], "; Cluster: ", prediction02_SP[2]))
+```
 
 ## Current Achievements
 
-- Prediction model for Brooklyn
-  - Clustering
-  - Zero-Inflated XXX (Pois/NB) Model 
+Bike Availability prediction model for Brooklyn
+
+- Hierarchical clustering
+  - Location-based
+- Poisson Model 
+  - Simplest count model
+  - Better predictor of zero availability
+
+Ridership usage patterns
+
 - Capture patterns of Citi Bike usage
+  - System wide evaluation of NYC
+  - Weekly and daily bike trip patterns
 
 ## Future Works
 
-- Weather ... actually, can I predict weather? would that really work?
-- Subway stations: Citi Bike offers valet 
-- Model of all NYC
-- Real-time clustering would be better
-- Greater amount of availability data
-- Deployed web application or smartphone app
+- Deploy web application or smartphone app to use GPS location
+- Model of all New York City
+- Real-time clustering to ensure all docking stations within quarter-mile of user
+- Increase amount of availability data
 
