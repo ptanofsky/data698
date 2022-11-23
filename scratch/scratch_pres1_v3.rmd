@@ -1,0 +1,731 @@
+---
+title: "Predicting Citi Bike Availability in NYC"
+subtitle: |
+  | DATA 698 Research Project
+  | CUNY Fall 2022
+author: "Philip Tanofsky"
+date: "`r Sys.Date()`"
+output:
+  beamer_presentation:
+    theme: "AnnArbor"
+    colortheme: "default"
+    fonttheme: "structurebold"
+header-includes: \usepackage{subfig, graphicx}
+classoption: t
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r libraries, echo=F, message=F, warning=F, include=F}
+# Required packages
+library(tidyverse)
+library(ggplot2)
+#library(skimr)
+library(lubridate)
+library(fpp3)
+library(rgdal)
+library(RColorBrewer)
+library(jpeg)
+library(data.table)
+library(geosphere)
+library(Metrics)
+library(AER)
+library(knitr)
+#library(broom)
+
+```
+
+## Citi Bike Availability
+
+Predict the count to avoid the empty racks
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.35\textwidth, height=\textheight, keepaspectratio]{cb_empty_rack_01.JPG}\hfil
+  \includegraphics[width=0.35\textwidth, height=\textheight, keepaspectratio]{cb_empty_rack_02.JPG} 
+
+  \includegraphics[width=0.35\textwidth, height=\textheight, keepaspectratio]{cb_empty_rack_03.JPG}\hfil   
+  \includegraphics[width=0.35\textwidth, height=\textheight, keepaspectratio]{cb_empty_rack_04.JPG}
+\end{figure}
+
+## Problem and Objective
+
+v3: started 11:30A on Nov 22, 2022
+
+Introduce yourselves and describe your problem.
+Explain your objectives, challenges of your work, proposed methodologies, and the assumptions you made while conducting modeling and/or analysis.
+Provide an overview of your approach and/or conceptual model (please do not present your code directly). 
+Describe the results you obtain and summarize the current achievements and possibility of future works.
+
+
+## Previous Work
+
+- bullet 1
+- bullet 2
+- bullet 3
+- bullet 4
+
+## Challenges and Assumptions
+
+Large volume of data
+
+- Over 10 million trips in 3 months under consideration
+- Over 1650 docking stations in NYC
+
+Rebalancing
+
+- System action of moving bikes to restock docking stations
+- Identification and inconsistency
+
+User-friendly availability prediction
+
+- Independent variables to prediction model
+- End-user input values
+  
+## Data Collection
+
+Citi Bike System Data
+
+- Download CSV file
+- API call every 15 minutes for two weeks
+
+NYC Open Data
+
+- Borough shapes via GeoJSON files
+
+Docking Station Elevation
+
+- R library `elevatr`
+
+Surplus/Shortage Timetable
+
+- Convert trip data to dataframe of bike departure and arrival counts by docking station for a given time interval
+
+## Data Analysis
+
+Ridership patterns
+
+  - Timeframe: August - October 2022 (92 days)
+  - Location: New York City departing trips
+  - Number of trips: 10,210,102
+  - Stations: 1,717
+  - Abandoned trips: 24,887
+
+Bike Availability
+
+  - Timeframe: Oct. 31 - Nov. 13 (14 days)
+  - Location: Brooklyn
+
+## EDA: Bike Trips by Hour
+
+```{r read.trip.data, echo=F, message=F, warning=F, include=F, eval=T}
+# Create additional columns of pertinence
+# weekday, day of the month, trip duration in minutes, start hour
+#citibike_202208 <- fread("data/202208-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
+#citibike_202209 <- fread("data/202209-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
+#citibike_202210 <- fread("data/202210-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE) %>%
+
+citibike <- fread("data/202210-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE) %>%
+#citibike <- bind_rows(citibike_202208, citibike_202209, citibike_202210) %>%
+  mutate(day = factor(mday(ymd_hms(started_at))),
+         start.hour=factor(hour(ymd_hms(started_at))),
+         weekday = lubridate::wday(ymd_hms(started_at), label=TRUE, abbr=TRUE),
+         trip.duration = as.numeric(difftime(ended_at,started_at,units="mins")),
+         member_casual = factor(member_casual)) %>%
+  rename(ride.id=ride_id, rideable.type=rideable_type, started.at=started_at,
+         ended.at=ended_at, start.station.name=start_station_name, start.station.id=start_station_id,
+         end.station.name=end_station_name, end.station.id=end_station_id, start.lat=start_lat,
+         start.lng=start_lng, end.lat=end_lat, end.lng=end_lng, member.casual=member_casual)
+
+# Figure out abandoned and label them
+citibike$end.station.name[citibike$end.station.name == ''] <- "Abandoned"
+citibike$end.station.id[citibike$end.station.id  == ''] <- "ABAN"
+
+# Output DF if needed
+head(citibike)
+```
+
+Bike Trips by Hour by User Type for Aug. - Oct. 2022
+
+```{r trip.by.hour.time.series, echo=F, message=F, warning=F, include=T, fig.height=5}
+
+citibike$started.at.ts <- as_datetime(as.character(citibike$started.at))
+
+citibike_by_hour <- citibike %>%
+  mutate(hour=lubridate::floor_date(started.at.ts, "1 hour")) %>%
+  group_by(hour, member.casual) %>%
+  summarize(cnt=n())
+#citibike_by_hour
+
+citibike_by_hour_ts <- citibike_by_hour %>%
+  as_tsibble(index=hour, key=c(member.casual))
+#citibike_by_hour_ts
+
+autoplot(citibike_by_hour_ts, cnt) +
+  labs(x = "Time by Hour",
+       y = "Ride Trip Counts") +
+  guides(colour = guide_legend(title = "User Type")
+        )
+
+```
+
+```{r}
+dcmp <- citibike_by_hour_ts %>%
+  model(stl = STL(cnt))
+components(dcmp) %>% autoplot()
+```
+
+## EDA: Weekly Seasonal Pattern
+
+Weekly seasonal plot of the bike trips for Aug. - Oct. 2022
+
+```{r trip.by.hour.seasonal, echo=F, message=F, warning=F, include=T, fig.height=5}
+citibike_by_hour_ts %>%
+  gg_season(cnt, period = "week") +
+  labs(x = "Time",
+       y = "Bike Trips")
+```
+
+## EDA: Three-Month Summary
+
+System-wide view of surplus or shortage for every NYC docking station
+
+::: columns
+
+:::: column
+
+\begin{center}
+  \includegraphics[trim={0 0 5cm 0},clip]{stations_surplus_sum.jpg}
+\end{center}
+
+::::
+
+:::: column
+
+Docking Station Color
+
+- Blue: Surplus
+- Red: Shortage
+- Green: Even
+
+::::
+
+:::
+
+## EDA: Daily Pattern
+
+Time lapse of surplus or shortage for every NYC docking station
+
+\begin{figure}
+  \centering
+  \subfloat[5 a.m.]{\includegraphics[width=3cm]{cb_stations_surplus_5A.jpg}}\hfil
+  \subfloat[8 a.m.]{\includegraphics[width=3cm]{cb_stations_surplus_8A.jpg}}\hfil 
+  \subfloat[11 a.m.]{\includegraphics[width=3cm]{cb_stations_surplus_11A.jpg}} 
+
+  \subfloat[2 p.m.]{\includegraphics[width=3cm]{cb_stations_surplus_2P.jpg}}\hfil   
+  \subfloat[5 p.m.]{\includegraphics[width=3cm]{cb_stations_surplus_5P.jpg}}\hfil
+  \subfloat[8 p.m.]{\includegraphics[width=3cm]{cb_stations_surplus_8P.jpg}}
+  \caption{Average Wednesday}
+\end{figure}
+
+
+## Overview of Algorithm Approach
+ 
+Data Source
+
+- Data from API call every 15 minutes for two weeks
+- Citi bike availability at each station
+- Two weeks is small interval to predict
+
+Step 1: Hierarchical Clustering
+
+- Cluster all the Brooklyn docking stations
+  - Distance: 400m (Quarter mile)
+  
+Step 2: Apply Generalized Linear Models
+- Predict count data
+-
+
+
+## Stations with Zero Bike Availability
+
+Frequency of zero bike availability per docking station in Brooklyn
+
+- Span: Two weeks
+- Instance: 15-minute interval
+
+\begin{center}
+  \includegraphics[width=0.5\textwidth, height=\textheight, keepaspectratio]{bk_stations_zero_avail.jpg}
+\end{center}
+
+
+## Rebalancing Example
+
+Inconsistent bike availability at Docking Station 3582 in Brooklyn
+
+```{r display.station.reblance, echo=F, message=F, warning=F, include=T, fig.height=5}
+citibike_bike_avail <- fread("bike_avail_by_station_and_time.csv", data.table=FALSE, check.names=FALSE)
+
+citibike_bike_avail <- citibike_bike_avail %>%
+  dplyr::select(-V1)
+
+citibike_bike_avail_long <- citibike_bike_avail %>%
+  pivot_longer(!timestamp, names_to = "station.id", values_to = "bikes.avail")
+
+
+citibike_bike_avail_long_trim <- citibike_bike_avail_long %>%
+  filter(as.integer(station.id) == 3582)
+
+p_rebalance_station <- ggplot(citibike_bike_avail_long_trim, 
+                              aes(x=timestamp, y=bikes.avail, group=station.id)) + 
+  geom_line(aes(color=station.id), show.legend = FALSE) +
+  geom_point(aes(color=station.id), show.legend = FALSE) +
+    labs(x='Time',
+         y='Available Bikes')
+
+p_rebalance_station
+```
+
+## Proposed Methodologies
+
+- Inputs
+  - Latitude and longitude
+    - Convert to cluster
+  - Day of the Week
+    - Convert to Weekday or Weekend day
+  - Time of Day (15M and 1H)
+- Citi Bike offers live map of availability
+- Lyft provides real-time availability
+
+- Time series model not used explanation (or really, just don't include)
+- Poisson distribution and Negative Binomial given the over-dispersion
+
+## Modeling Step 1: Clustering Model
+
+- Borough: Brooklyn
+
+- Docking Stations: 474
+
+- Clusters: 2XX
+
+\begin{center}
+  \includegraphics[width=0.5\textwidth, height=\textheight, keepaspectratio]{bk_stations_by_cluster.jpg}
+\end{center}
+
+
+## Bike Availability Count Frequency
+
+Histogram of availability based on 1HR intervals for Brooklyn clusters
+
+- High frequency near 0 and 2 and plateaus at docking station capacities
+
+```{r display.bk.freqOfZero.by.cluster, echo=F, message=F, warning=F, include=T, fig.height=5}
+# Read in the csv of the API responses which have been wrangled together
+stations_with_bike_avail <- read.csv('bike_avail_by_station_and_time.csv', row.names = 1, header= TRUE, check.names = FALSE)
+
+stations_with_bike_avail_long <- stations_with_bike_avail %>%
+  pivot_longer(!timestamp, names_to = "station.id", values_to = "bikes.avail.count")
+
+stations_with_elevation <- read.csv('stations_with_elevation.csv', row.names = 1, header= TRUE)
+
+stations_with_boro_hood <- read.csv('stations_with_boro_and_hood.csv', row.names = 1, header= TRUE)
+
+# Combine the elevation, borough, neighborhood, and September surplus
+# First let's trim the DF for elevation
+stations_with_elevation_trim <- stations_with_elevation %>%
+  dplyr::select(short_name, station_id, elevation, elev_units)
+
+stations_with_boro_hood_trim <- stations_with_boro_hood %>%
+  dplyr::select(short_name, name, station_id, capacity, ntaname, boro_name, lon, lat)
+
+stations_attrs_trim <- 
+  merge(stations_with_elevation_trim, 
+        stations_with_boro_hood_trim, 
+        by.x=c('short_name'), 
+        by.y=c('short_name'), all = TRUE)
+
+stations_attrs_trim <- stations_attrs_trim %>%
+  dplyr::select(-station_id.y)
+
+colnames(stations_attrs_trim)[colnames(stations_attrs_trim) == 'station_id.x'] <- 'station_id'
+
+stations_attrs_trim[c("boro_name")][is.na(stations_attrs_trim[c("boro_name")])] <- "New Jersey"
+
+stations_attrs_trim <- 
+  stations_attrs_trim %>% 
+  mutate(ntaname = ifelse(startsWith(short_name, "JC"), "Jersey City", ntaname))
+
+stations_attrs_trim <- 
+  stations_attrs_trim %>% 
+  mutate(ntaname = ifelse(startsWith(short_name, "HB"), "Hoboken", ntaname))
+
+stations_attrs_trim <- stations_attrs_trim %>%
+  rename(short.name=short_name, station.id=station_id, elev.units=elev_units, nta.name=ntaname, boro.name=boro_name)
+
+stations_attrs_trim_bk <- stations_attrs_trim %>%
+  filter(boro.name == "Brooklyn")
+
+
+# Distance matrix for docking stations
+# Result is in meters
+dist_mat <- distm(stations_attrs_trim_bk[9:10], stations_attrs_trim_bk[9:10], fun=distHaversine)
+dist_mat <- as.data.frame(dist_mat)
+
+dist_mat[is.na(dist_mat)] <- 0
+dMat <- as.dist(dist_mat)
+
+# Now for the clustering
+hier_clust <- hclust(dMat, method = "complete")
+# 400 meters is about a quarter of a mile (0.248548 miles)
+stations_attrs_trim_bk$cluster <- cutree(hier_clust, h=400)
+
+station_to_cluster <- stations_attrs_trim_bk %>%
+  dplyr::select(station.id, cluster)
+
+# Merge long df with counts with station.id and cluster to label clusters properly
+stations_bike_avail_by_time <- 
+  merge(stations_with_bike_avail_long, 
+        station_to_cluster, 
+        by.x=c('station.id'), 
+        by.y=c('station.id'), all.x = TRUE)
+
+stations_bike_avail_by_time_no_na <- stations_bike_avail_by_time %>%
+  filter(!is.na(cluster))
+
+# group by cluster ID for each timestamp
+stations_bike_avail_by_time_no_na_group <- aggregate(bikes.avail.count ~ timestamp + cluster, data = stations_bike_avail_by_time_no_na, FUN = sum, na.rm = TRUE)
+
+stations_bike_avail_by_time_no_na_group <- stations_bike_avail_by_time_no_na_group[order(stations_bike_avail_by_time_no_na_group$timestamp),]
+
+# mutate to convert timestamp into day of the week, etc.
+stations_bike_avail_by_time_no_na_group <- stations_bike_avail_by_time_no_na_group %>%
+  mutate(time=as.ITime(ymd_hms(timestamp)),
+         weekday = lubridate::wday(ymd_hms(timestamp),label=TRUE,abbr=TRUE))
+
+stations_bike_avail_by_time_no_na_group$cluster <- as.factor(stations_bike_avail_by_time_no_na_group$cluster)
+stations_bike_avail_by_time_no_na_group$time <- as.factor(stations_bike_avail_by_time_no_na_group$time)
+stations_bike_avail_by_time_no_na_group$weekday <- as.factor(stations_bike_avail_by_time_no_na_group$weekday)
+
+stations_bike_avail_by_time_no_na_group$time <- factor(stations_bike_avail_by_time_no_na_group$time, 
+                       levels = c("00:00:00", "00:15:00", "00:30:00", "00:45:00",
+                                  "01:00:00", "01:15:00", "01:30:00", "01:45:00",
+                                  "02:00:00", "02:15:00", "02:30:00", "02:45:00",
+                                  "03:00:00", "03:15:00", "03:30:00", "03:45:00",
+                                  "04:00:00", "04:15:00", "04:30:00", "04:45:00",
+                                  "05:00:00", "05:15:00", "05:30:00", "05:45:00",
+                                  "06:00:00", "06:15:00", "06:30:00", "06:45:00",
+                                  "07:00:00", "07:15:00", "07:30:00", "07:45:00",
+                                  "08:00:00", "08:15:00", "08:30:00", "08:45:00",
+                                  "09:00:00", "09:15:00", "09:30:00", "09:45:00",
+                                  "10:00:00", "10:15:00", "10:30:00", "10:45:00",
+                                  "11:00:00", "11:15:00", "11:30:00", "11:45:00",
+                                  "12:00:00", "12:15:00", "12:30:00", "12:45:00",
+                                  "13:00:00", "13:15:00", "13:30:00", "13:45:00",
+                                  "14:00:00", "14:15:00", "14:30:00", "14:45:00",
+                                  "15:00:00", "15:15:00", "15:30:00", "15:45:00",
+                                  "16:00:00", "16:15:00", "16:30:00", "16:45:00",
+                                  "17:00:00", "17:15:00", "17:30:00", "17:45:00",
+                                  "18:00:00", "18:15:00", "18:30:00", "18:45:00",
+                                  "19:00:00", "19:15:00", "19:30:00", "19:45:00",
+                                  "20:00:00", "20:15:00", "20:30:00", "20:45:00",
+                                  "21:00:00", "21:15:00", "21:30:00", "21:45:00",
+                                  "22:00:00", "22:15:00", "22:30:00", "22:45:00",
+                                  "23:00:00", "23:15:00", "23:30:00", "23:45:00"))
+
+stations_bike_avail_by_time_no_timestamp <- subset(stations_bike_avail_by_time_no_na_group, select=-c(timestamp))
+
+stations_bike_avail_by_time_1H <- stations_bike_avail_by_time_no_timestamp %>%
+  filter(endsWith(as.character(time), "00:00"))
+
+# Table of availability based on 1HR intervals
+tab_1H <- table(stations_bike_avail_by_time_1H$bikes.avail.count)
+
+# This plot shows the available bike count frequencies given 1HR intervals and Brooklyn station clusters for the 2 weeks. 0 is the most frequent count and filterd at 150, just to provide some sort of upper bound
+
+# There appears to be a max around 22 or so as the distribution drops off just before 25, likely a result of docking station capacity
+
+tab_1H_df <- as.data.frame(tab_1H)
+
+tab_1H_df$Var1 <- as.integer(tab_1H_df$Var1)
+
+# Distrbution of count results
+p_distro_avail_counts <- tab_1H_df %>%
+  filter(Var1 < 150) %>%
+  ggplot(aes(x=Var1, y=Freq)) +
+  geom_bar(stat="identity") +
+  labs(x='Availability Count',
+       y='Frequency',
+       title='Frequency of Hourly Available Bike Counts for Brooklyn Clusters')
+# Display plot
+p_distro_avail_counts
+```
+
+## Modeling Step 2: Count Models
+
+Generalized Linear Models for Count Data
+
+- Poisson
+- Quasi-Poisson
+- Negative Binomial
+- Hurdle
+  - Poisson and Negative Binomial
+- Zero-Inflated
+  - Poisson and Negative Binomial
+
+Zero-Inflated
+
+\begin{equation} 
+Pr(Y = 0) = \pi + (1 - \pi)e^{-\lambda}
+\end{equation} 
+\begin{equation} 
+Pr(Y = y{_i}) = (1 - \pi) \frac{\lambda^{y_i}e^{-\lambda}}{y_i!}, y_i = 1,2,3,...
+\end{equation} 
+
+Poisson
+Probability mass function
+
+\begin{equation} 
+f(k; \lambda) = Pr(X=k) = \frac{\lambda^ke^{-\lambda}}{k!},
+\end{equation} 
+where
+- $k$ is the number of occurrences $(k = 0, 1, 2, ...)$
+- $e$ is Euler's number $( e = 2.71828...)$
+- $!$ is the factorial function
+
+Negative Binomial
+Probability mass funcgion
+
+\begin{equation} 
+f(k;r,p) \equiv Pr(X = k) = {k+r-1 \choose r-1}(1-p)^kp^r
+\end{equation} 
+
+## REMOVE THIS SLIDE !!! THIS IS FOR 15 MINUTES
+
+```{r models.15M.intervals, eval=F, echo=F, message=F, warning=F, include=T}
+# Start with data partition here.
+set.seed(8675309)
+index <- sample(2, nrow(stations_bike_avail_by_time_no_timestamp), replace = TRUE, p=c(0.8, 0.2))
+train <- stations_bike_avail_by_time_no_timestamp[index==1,]
+test <- stations_bike_avail_by_time_no_timestamp[index==2,]
+
+#-- Poisson 15-minute interval
+mod_15M_pois <- glm(bikes.avail.count ~ cluster + time + weekday, data = train, family ="poisson")
+summary(mod_15M_pois)
+
+dispersiontest(mod_15M_pois)
+
+#pred_15M_pois <- predict.glm(mod_15M_pois, newdata=test[test$bikes.avail.count != 0,],type = "response")
+#plot(test$bikes.avail.count[test$bikes.avail.count!=0],type = "b",col="red")
+#lines(round(pred_15M_pois),col="blue")
+
+pred_15M_pois <- predict.glm(mod_15M_pois, newdata = test, type = "response")
+rmse_mod_15M_pois <- ModelMetrics::rmse(test$bikes.avail.count,round(pred_15M_pois))
+mae_mod_15M_pois <- mae(test$bikes.avail.count,round(pred_15M_pois))
+
+rmse_mod_15M_pois
+mae_mod_15M_pois
+
+## -- Quasi-Poisson 15-minute interval
+mod_15M_qp <- glm(bikes.avail.count ~ cluster + time + weekday, data = train, family ="quasipoisson")
+summary(mod_15M_qp)
+
+## pred_15M_qp <- predict.glm(mod_15M_qp, newdata=test[test$bikes.avail.count != 0,],type = "response")
+## plot(test$bikes.avail.count[test$bikes.avail.count!=0],type = "b",col="red")
+## lines(round(pred_15M_qp),col="blue")
+
+pred_15M_qp <- predict.glm(mod_15M_qp, newdata=test, type = "response")
+rmse_mod_15M_qp <- ModelMetrics::rmse(test$bikes.avail.count,round(pred_15M_qp))
+mae_mod_15M_qp <- mae(test$bikes.avail.count,round(pred_15M_qp))
+
+## -- Negative Binomial
+mod_15M_nb <- glm.nb(bikes.avail.count ~ cluster + time + weekday, data=train)
+summary(mod_15M_nb)
+
+pred_15M_nb <- predict.glm(mod_15M_nb, newdata=test, type = "response")
+rmse_mod_15M_nb <- ModelMetrics::rmse(test$bikes.avail.count,round(pred_15M_nb))
+mae_mod_15M_nb <- mae(test$bikes.avail.count,round(pred_15M_nb))
+
+## Build output table
+rmse_15M <- c(rmse_mod_15M_pois, rmse_mod_15M_qp, rmse_mod_15M_nb)
+mae_15M <- c(mae_mod_15M_pois, mae_mod_15M_qp, mae_mod_15M_nb)
+
+models_15M <- c("pois","q_pois","nb")
+
+data.frame(models_15M, rmse_15M, mae_15M) %>% 
+  arrange(rmse_15M)
+
+```
+
+
+- Certain input to model based on 15 minute intervals above
+- Results table
+
+
+## Model Results 1-Hour Interval
+
+- Certain input to model based on 1 hour intervals below
+- Results table
+
+```{r models.1H.intervals, eval=F, echo=F, message=F, warning=F, include=T}
+stations_bike_avail_by_time_1H <- stations_bike_avail_by_time_no_timestamp %>%
+  filter(endsWith(as.character(time), "00:00"))
+
+# Start with data partition here.
+set.seed(8675309)
+index <- sample(2, nrow(stations_bike_avail_by_time_1H), replace = TRUE, p=c(0.8, 0.2))
+train_1H <- stations_bike_avail_by_time_1H[index==1,]
+test_1H <- stations_bike_avail_by_time_1H[index==2,]
+
+# Sample Variance is 313
+var(stations_bike_avail_by_time_1H$bikes.avail.count)
+n <- length(stations_bike_avail_by_time_1H)
+# Population variance
+var(stations_bike_avail_by_time_1H$bikes.avail.count)*(n-1)/n
+# Mean is 13
+mean(stations_bike_avail_by_time_1H$bikes.avail.count)
+
+# Overdispersion exists
+
+mod_1H_pois <- glm(bikes.avail.count ~ cluster + time + weekday, data = train_1H, family ="poisson")
+summary(mod_1H_pois)
+
+dispersiontest(mod_1H_pois)
+
+pred_1H_pois <- predict.glm(mod_1H_pois, newdata = test_1H, type = "response")
+rmse_mod_1H_pois <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1H_pois))
+mae_mod_1H_pois <- mae(test_1H$bikes.avail.count,round(pred_1H_pois))
+
+mod_1H_qp <- glm(bikes.avail.count ~ cluster + time + weekday, data = train_1H, family ="quasipoisson")
+summary(mod_1H_qp)
+
+pred_1H_qp <- predict.glm(mod_1H_qp, newdata=test_1H, type = "response")
+rmse_mod_1H_qp <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1H_qp))
+mae_mod_1H_qp <- mae(test_1H$bikes.avail.count,round(pred_1H_qp))
+
+mod_1H_nb <- glm.nb(bikes.avail.count ~ cluster + time + weekday, data=train_1H)
+summary(mod_1H_nb)
+
+pred_1H_nb <- predict.glm(mod_1H_nb, newdata=test_1H, type = "response")
+rmse_mod_1H_nb <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1H_nb))
+mae_mod_1H_nb <- mae(test_1H$bikes.avail.count,round(pred_1H_nb))
+
+mod_1H_hur_pois <- hurdle(bikes.avail.count ~ cluster + time + weekday, data=train_1H, dist = "poisson")
+summary(mod_1H_hur_pois)
+
+pred_1H_hur_pois <- predict(mod_1H_hur_pois, newdata=test_1H, type = "response")
+rmse_mod_1H_hur_pois <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1H_hur_pois))
+mae_mod_1H_hur_pois <- mae(test_1H$bikes.avail.count,round(pred_1H_hur_pois))
+
+mod_1H_hur_nb <- hurdle(bikes.avail.count ~ cluster + time + weekday, data=train_1H, dist = "negbin")
+summary(mod_1H_hur_nb)
+
+pred_1H_hur_nb <- predict(mod_1H_hur_nb, newdata=test_1H, type = "response")
+rmse_mod_1H_hu_nb <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1H_hur_nb))
+mae_mod_1H_hu_nb <- mae(test_1H$bikes.avail.count,round(pred_1H_hur_nb))
+
+mod_1H_zero_pois <- zeroinfl(bikes.avail.count ~ cluster + time + weekday, data=train_1H, dist = "poisson")
+summary(mod_1H_zero_pois)
+
+pred_1H_zero_pois <- predict(mod_1H_zero_pois, newdata=test_1H,type = "response")
+rmse_mod_1H_zero_pois <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1H_zero_pois))
+mae_mod_1H_zero_pois <- mae(test_1H$bikes.avail.count,round(pred_1H_zero_pois))
+
+mod_1H_zero_nb <- zeroinfl(bikes.avail.count ~ cluster + time + weekday, data=train_1H,dist = "negbin")
+summary(mod_1H_zero_nb)
+
+pred_1H_zero_nb <- predict(mod_1H_zero_nb, newdata=test_1H ,type = "response")
+rmse_mod_1H_zero_nb <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1H_zero_nb))
+mae_mod_1H_zero_nb <- mae(test_1H$bikes.avail.count,round(pred_1H_zero_nb))
+
+rmse_1H <- c(rmse_mod_1H_pois, rmse_mod_1H_qp, rmse_mod_1H_nb,
+             rmse_mod_1H_hur_pois, rmse_mod_1H_hu_nb,
+             rmse_mod_1H_zero_pois, rmse_mod_1H_zero_nb)
+mae_1H <- c(mae_mod_1H_pois, mae_mod_1H_qp, mae_mod_1H_nb,
+            mae_mod_1H_hur_pois, mae_mod_1H_qp,
+            mae_mod_1H_zero_pois, mae_mod_1H_zero_nb)
+
+models_1H <- c("pois","q_pois","nb",
+               "h_pois","h_nb",
+               "zer_pois","zer_nb")
+
+data.frame(models_1H, rmse_1H, mae_1H)%>% 
+  arrange(rmse_1H)
+```
+
+## Model Results Visualization
+
+- Plot of the preds and actuals for best scoring model
+
+```{r display.top.model.preds, eval=F, echo=F, message=F, warning=F, include=T, fig.height=5}
+pred_1H_zero_pois_plot <- predict(mod_1H_zero_pois, 
+                                  newdata=test_1H[test_1H$bikes.avail.count!=0,],
+                                  type = "response")
+
+plot(test_1H$bikes.avail.count[test_1H$bikes.avail.count!=0],type = "b",col="red")
+lines(round(pred_1H_zero_pois_plot),col="blue")
+```
+
+## Availability Prediction
+
+- Model prediction
+  - Show how it works
+  
+```{r prediction.function.signature, eval=F, echo=T, message=F, warning=F, include=F}
+predict_num_bikes_avail <- function(longitude, latitude, time, day)
+```
+  
+```{r prediction.function, eval=F, echo=F, message=F, warning=F, include=T}
+predict_num_bikes_avail <- function(longitude, latitude, time, day) {
+  #longitude: -73.960859
+  #latitude: 40.67355
+  #time: "07:30:00"
+  #day: "Mon"
+  
+  # Convert lon/lat to cluster
+  location <- data.frame(matrix(nrow = 1,data = c(longitude, latitude)))
+  closest_station <- nn2(stations_attrs_trim_bk[, 9:10], query=location, k=1)
+  inp_cluster <- stations_attrs_trim_bk[closest_station$nn.idx,]$cluster
+
+  print(inp_cluster)
+  
+  # Create input for prediction
+  bike_avail_query <- data.frame(matrix(nrow = 1,data = c(inp_cluster, 0, time, day)))
+  colnames(bike_avail_query) <- c("cluster", "bikes.avail.count", "time", "weekday")
+
+  # Predict using Model: mod1
+  num_bikes_avail <- predict.glm(mod_1H_zero_pois, newdata = bike_avail_query, type = "response")
+  # Take floor of prediction to ensure whole number
+  num_bikes_avail <- as.integer(floor(num_bikes_avail))
+  
+  return(num_bikes_avail)
+}
+```
+
+```{r prediction.one, eval=F, echo=T, message=F, warning=F, include=T}
+predict_num_bikes_avail(-73.960859, 40.67355, "08:30:00", "Sat")
+```
+
+TODO
+
+```{r prediction.two, eval=F, echo=T, message=F, warning=F, include=T}
+predict_num_bikes_avail(-73.960859, 40.67355, "08:30:00", "Sat")
+```
+
+## Current Achievements
+
+- Prediction model for Brooklyn
+  - Clustering
+  - Zero-Inflated XXX (Pois/NB) Model 
+- Capture patterns of Citi Bike usage
+
+## Future Works
+
+- Weather ... actually, can I predict weather? would that really work?
+- Subway stations: Citi Bike offers valet 
+- Model of all NYC
+- Real-time clustering would be better
+- Greater amount of availability data
+- Deployed web application or smartphone app
+

@@ -91,6 +91,7 @@ citibike$end.station.id[citibike$end.station.id  == ''] <- "ABAN"
 head(citibike)
 ```
 
+1717 unique station.id in the 3 month dataset
 
 ```{r}
 # Output DF to visually check data
