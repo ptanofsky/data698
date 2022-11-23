@@ -33,6 +33,10 @@ library(geosphere)
 library(Metrics)
 library(AER)
 library(knitr)
+library(MASS)
+library(pscl)
+library(RANN)
+library(kableExtra)
 #library(broom)
 
 ```
@@ -305,10 +309,8 @@ p_rebalance_station
 ## Modeling Step 1: Clustering Model
 
 - Borough: Brooklyn
-
 - Docking Stations: 474
-
-- Clusters: 2XX
+- Clusters: 213
 
 \begin{center}
   \includegraphics[width=0.5\textwidth, height=\textheight, keepaspectratio]{bk_stations_by_cluster.jpg}
@@ -367,7 +369,6 @@ stations_attrs_trim <- stations_attrs_trim %>%
 stations_attrs_trim_bk <- stations_attrs_trim %>%
   filter(boro.name == "Brooklyn")
 
-
 # Distance matrix for docking stations
 # Result is in meters
 dist_mat <- distm(stations_attrs_trim_bk[9:10], stations_attrs_trim_bk[9:10], fun=distHaversine)
@@ -382,7 +383,7 @@ hier_clust <- hclust(dMat, method = "complete")
 stations_attrs_trim_bk$cluster <- cutree(hier_clust, h=400)
 
 station_to_cluster <- stations_attrs_trim_bk %>%
-  dplyr::select(station.id, cluster)
+  dplyr::select(station.id, cluster, elevation, capacity)
 
 # Merge long df with counts with station.id and cluster to label clusters properly
 stations_bike_avail_by_time <- 
@@ -394,10 +395,15 @@ stations_bike_avail_by_time <-
 stations_bike_avail_by_time_no_na <- stations_bike_avail_by_time %>%
   filter(!is.na(cluster))
 
-# group by cluster ID for each timestamp
-stations_bike_avail_by_time_no_na_group <- aggregate(bikes.avail.count ~ timestamp + cluster, data = stations_bike_avail_by_time_no_na, FUN = sum, na.rm = TRUE)
+stations_bike_avail_by_time_no_na_group_sum <- stations_bike_avail_by_time_no_na %>%
+  group_by(timestamp, cluster) %>%
+  summarize_at(vars(bikes.avail.count, capacity), sum)
 
-stations_bike_avail_by_time_no_na_group <- stations_bike_avail_by_time_no_na_group[order(stations_bike_avail_by_time_no_na_group$timestamp),]
+stations_bike_avail_by_time_no_na_group_mean <- stations_bike_avail_by_time_no_na %>%
+  group_by(timestamp, cluster) %>%
+  summarise_at(vars(elevation), mean)
+
+stations_bike_avail_by_time_no_na_group <- cbind(stations_bike_avail_by_time_no_na_group_sum, stations_bike_avail_by_time_no_na_group_mean[3])
 
 # mutate to convert timestamp into day of the week, etc.
 stations_bike_avail_by_time_no_na_group <- stations_bike_avail_by_time_no_na_group %>%
@@ -406,38 +412,16 @@ stations_bike_avail_by_time_no_na_group <- stations_bike_avail_by_time_no_na_gro
 
 stations_bike_avail_by_time_no_na_group$cluster <- as.factor(stations_bike_avail_by_time_no_na_group$cluster)
 stations_bike_avail_by_time_no_na_group$time <- as.factor(stations_bike_avail_by_time_no_na_group$time)
-stations_bike_avail_by_time_no_na_group$weekday <- as.factor(stations_bike_avail_by_time_no_na_group$weekday)
-
-stations_bike_avail_by_time_no_na_group$time <- factor(stations_bike_avail_by_time_no_na_group$time, 
-                       levels = c("00:00:00", "00:15:00", "00:30:00", "00:45:00",
-                                  "01:00:00", "01:15:00", "01:30:00", "01:45:00",
-                                  "02:00:00", "02:15:00", "02:30:00", "02:45:00",
-                                  "03:00:00", "03:15:00", "03:30:00", "03:45:00",
-                                  "04:00:00", "04:15:00", "04:30:00", "04:45:00",
-                                  "05:00:00", "05:15:00", "05:30:00", "05:45:00",
-                                  "06:00:00", "06:15:00", "06:30:00", "06:45:00",
-                                  "07:00:00", "07:15:00", "07:30:00", "07:45:00",
-                                  "08:00:00", "08:15:00", "08:30:00", "08:45:00",
-                                  "09:00:00", "09:15:00", "09:30:00", "09:45:00",
-                                  "10:00:00", "10:15:00", "10:30:00", "10:45:00",
-                                  "11:00:00", "11:15:00", "11:30:00", "11:45:00",
-                                  "12:00:00", "12:15:00", "12:30:00", "12:45:00",
-                                  "13:00:00", "13:15:00", "13:30:00", "13:45:00",
-                                  "14:00:00", "14:15:00", "14:30:00", "14:45:00",
-                                  "15:00:00", "15:15:00", "15:30:00", "15:45:00",
-                                  "16:00:00", "16:15:00", "16:30:00", "16:45:00",
-                                  "17:00:00", "17:15:00", "17:30:00", "17:45:00",
-                                  "18:00:00", "18:15:00", "18:30:00", "18:45:00",
-                                  "19:00:00", "19:15:00", "19:30:00", "19:45:00",
-                                  "20:00:00", "20:15:00", "20:30:00", "20:45:00",
-                                  "21:00:00", "21:15:00", "21:30:00", "21:45:00",
-                                  "22:00:00", "22:15:00", "22:30:00", "22:45:00",
-                                  "23:00:00", "23:15:00", "23:30:00", "23:45:00"))
+stations_bike_avail_by_time_no_na_group$weekday <- factor(stations_bike_avail_by_time_no_na_group$weekday, ordered=FALSE)
 
 stations_bike_avail_by_time_no_timestamp <- subset(stations_bike_avail_by_time_no_na_group, select=-c(timestamp))
 
 stations_bike_avail_by_time_1H <- stations_bike_avail_by_time_no_timestamp %>%
   filter(endsWith(as.character(time), "00:00"))
+
+stations_bike_avail_by_time_1H <- stations_bike_avail_by_time_1H %>%
+  mutate(day = ifelse(weekday %in% c('Sat', 'Sun'), 'WKND', 'WDAY'))
+
 
 # Table of availability based on 1HR intervals
 tab_1H <- table(stations_bike_avail_by_time_1H$bikes.avail.count)
@@ -461,6 +445,7 @@ p_distro_avail_counts <- tab_1H_df %>%
 # Display plot
 p_distro_avail_counts
 ```
+
 
 ## Modeling Step 2: Count Models
 
@@ -501,80 +486,19 @@ Probability mass funcgion
 f(k;r,p) \equiv Pr(X = k) = {k+r-1 \choose r-1}(1-p)^kp^r
 \end{equation} 
 
-## REMOVE THIS SLIDE !!! THIS IS FOR 15 MINUTES
-
-```{r models.15M.intervals, eval=F, echo=F, message=F, warning=F, include=T}
-# Start with data partition here.
-set.seed(8675309)
-index <- sample(2, nrow(stations_bike_avail_by_time_no_timestamp), replace = TRUE, p=c(0.8, 0.2))
-train <- stations_bike_avail_by_time_no_timestamp[index==1,]
-test <- stations_bike_avail_by_time_no_timestamp[index==2,]
-
-#-- Poisson 15-minute interval
-mod_15M_pois <- glm(bikes.avail.count ~ cluster + time + weekday, data = train, family ="poisson")
-summary(mod_15M_pois)
-
-dispersiontest(mod_15M_pois)
-
-#pred_15M_pois <- predict.glm(mod_15M_pois, newdata=test[test$bikes.avail.count != 0,],type = "response")
-#plot(test$bikes.avail.count[test$bikes.avail.count!=0],type = "b",col="red")
-#lines(round(pred_15M_pois),col="blue")
-
-pred_15M_pois <- predict.glm(mod_15M_pois, newdata = test, type = "response")
-rmse_mod_15M_pois <- ModelMetrics::rmse(test$bikes.avail.count,round(pred_15M_pois))
-mae_mod_15M_pois <- mae(test$bikes.avail.count,round(pred_15M_pois))
-
-rmse_mod_15M_pois
-mae_mod_15M_pois
-
-## -- Quasi-Poisson 15-minute interval
-mod_15M_qp <- glm(bikes.avail.count ~ cluster + time + weekday, data = train, family ="quasipoisson")
-summary(mod_15M_qp)
-
-## pred_15M_qp <- predict.glm(mod_15M_qp, newdata=test[test$bikes.avail.count != 0,],type = "response")
-## plot(test$bikes.avail.count[test$bikes.avail.count!=0],type = "b",col="red")
-## lines(round(pred_15M_qp),col="blue")
-
-pred_15M_qp <- predict.glm(mod_15M_qp, newdata=test, type = "response")
-rmse_mod_15M_qp <- ModelMetrics::rmse(test$bikes.avail.count,round(pred_15M_qp))
-mae_mod_15M_qp <- mae(test$bikes.avail.count,round(pred_15M_qp))
-
-## -- Negative Binomial
-mod_15M_nb <- glm.nb(bikes.avail.count ~ cluster + time + weekday, data=train)
-summary(mod_15M_nb)
-
-pred_15M_nb <- predict.glm(mod_15M_nb, newdata=test, type = "response")
-rmse_mod_15M_nb <- ModelMetrics::rmse(test$bikes.avail.count,round(pred_15M_nb))
-mae_mod_15M_nb <- mae(test$bikes.avail.count,round(pred_15M_nb))
-
-## Build output table
-rmse_15M <- c(rmse_mod_15M_pois, rmse_mod_15M_qp, rmse_mod_15M_nb)
-mae_15M <- c(mae_mod_15M_pois, mae_mod_15M_qp, mae_mod_15M_nb)
-
-models_15M <- c("pois","q_pois","nb")
-
-data.frame(models_15M, rmse_15M, mae_15M) %>% 
-  arrange(rmse_15M)
-
-```
-
-
-- Certain input to model based on 15 minute intervals above
-- Results table
-
 
 ## Model Results 1-Hour Interval
 
 - Certain input to model based on 1 hour intervals below
 - Results table
 
-```{r models.1H.intervals, eval=F, echo=F, message=F, warning=F, include=T}
-stations_bike_avail_by_time_1H <- stations_bike_avail_by_time_no_timestamp %>%
-  filter(endsWith(as.character(time), "00:00"))
+```{r models.1H.intervals, eval=T, echo=F, message=F, warning=F, include=T}
+#stations_bike_avail_by_time_1H <- stations_bike_avail_by_time_no_timestamp %>%
+#  filter(endsWith(as.character(time), "00:00"))
 
 # Start with data partition here.
 set.seed(8675309)
-index <- sample(2, nrow(stations_bike_avail_by_time_1H), replace = TRUE, p=c(0.8, 0.2))
+index <- sample(2, nrow(stations_bike_avail_by_time_1H), replace = TRUE, p=c(0.75, 0.25))
 train_1H <- stations_bike_avail_by_time_1H[index==1,]
 test_1H <- stations_bike_avail_by_time_1H[index==2,]
 
@@ -588,7 +512,7 @@ mean(stations_bike_avail_by_time_1H$bikes.avail.count)
 
 # Overdispersion exists
 
-mod_1H_pois <- glm(bikes.avail.count ~ cluster + time + weekday, data = train_1H, family ="poisson")
+mod_1H_pois <- glm(bikes.avail.count ~ cluster + time + day, data = train_1H, family ="poisson")
 summary(mod_1H_pois)
 
 dispersiontest(mod_1H_pois)
@@ -597,42 +521,28 @@ pred_1H_pois <- predict.glm(mod_1H_pois, newdata = test_1H, type = "response")
 rmse_mod_1H_pois <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1H_pois))
 mae_mod_1H_pois <- mae(test_1H$bikes.avail.count,round(pred_1H_pois))
 
-mod_1H_qp <- glm(bikes.avail.count ~ cluster + time + weekday, data = train_1H, family ="quasipoisson")
+mod_1H_qp <- glm(bikes.avail.count ~ cluster + time + day, data = train_1H, family ="quasipoisson")
 summary(mod_1H_qp)
 
 pred_1H_qp <- predict.glm(mod_1H_qp, newdata=test_1H, type = "response")
 rmse_mod_1H_qp <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1H_qp))
 mae_mod_1H_qp <- mae(test_1H$bikes.avail.count,round(pred_1H_qp))
 
-mod_1H_nb <- glm.nb(bikes.avail.count ~ cluster + time + weekday, data=train_1H)
+mod_1H_nb <- glm.nb(bikes.avail.count ~ cluster + time + day, data=train_1H)
 summary(mod_1H_nb)
 
 pred_1H_nb <- predict.glm(mod_1H_nb, newdata=test_1H, type = "response")
 rmse_mod_1H_nb <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1H_nb))
 mae_mod_1H_nb <- mae(test_1H$bikes.avail.count,round(pred_1H_nb))
 
-mod_1H_hur_pois <- hurdle(bikes.avail.count ~ cluster + time + weekday, data=train_1H, dist = "poisson")
-summary(mod_1H_hur_pois)
-
-pred_1H_hur_pois <- predict(mod_1H_hur_pois, newdata=test_1H, type = "response")
-rmse_mod_1H_hur_pois <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1H_hur_pois))
-mae_mod_1H_hur_pois <- mae(test_1H$bikes.avail.count,round(pred_1H_hur_pois))
-
-mod_1H_hur_nb <- hurdle(bikes.avail.count ~ cluster + time + weekday, data=train_1H, dist = "negbin")
-summary(mod_1H_hur_nb)
-
-pred_1H_hur_nb <- predict(mod_1H_hur_nb, newdata=test_1H, type = "response")
-rmse_mod_1H_hu_nb <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1H_hur_nb))
-mae_mod_1H_hu_nb <- mae(test_1H$bikes.avail.count,round(pred_1H_hur_nb))
-
-mod_1H_zero_pois <- zeroinfl(bikes.avail.count ~ cluster + time + weekday, data=train_1H, dist = "poisson")
+mod_1H_zero_pois <- zeroinfl(bikes.avail.count ~ cluster + time + day, data=train_1H, dist = "poisson")
 summary(mod_1H_zero_pois)
 
 pred_1H_zero_pois <- predict(mod_1H_zero_pois, newdata=test_1H,type = "response")
 rmse_mod_1H_zero_pois <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1H_zero_pois))
 mae_mod_1H_zero_pois <- mae(test_1H$bikes.avail.count,round(pred_1H_zero_pois))
 
-mod_1H_zero_nb <- zeroinfl(bikes.avail.count ~ cluster + time + weekday, data=train_1H,dist = "negbin")
+mod_1H_zero_nb <- zeroinfl(bikes.avail.count ~ cluster + time + day, data=train_1H,dist = "negbin")
 summary(mod_1H_zero_nb)
 
 pred_1H_zero_nb <- predict(mod_1H_zero_nb, newdata=test_1H ,type = "response")
@@ -640,32 +550,35 @@ rmse_mod_1H_zero_nb <- ModelMetrics::rmse(test_1H$bikes.avail.count,round(pred_1
 mae_mod_1H_zero_nb <- mae(test_1H$bikes.avail.count,round(pred_1H_zero_nb))
 
 rmse_1H <- c(rmse_mod_1H_pois, rmse_mod_1H_qp, rmse_mod_1H_nb,
-             rmse_mod_1H_hur_pois, rmse_mod_1H_hu_nb,
+#             rmse_mod_1H_hur_pois, rmse_mod_1H_hu_nb,
              rmse_mod_1H_zero_pois, rmse_mod_1H_zero_nb)
 mae_1H <- c(mae_mod_1H_pois, mae_mod_1H_qp, mae_mod_1H_nb,
-            mae_mod_1H_hur_pois, mae_mod_1H_qp,
+#            mae_mod_1H_hur_pois, mae_mod_1H_qp,
             mae_mod_1H_zero_pois, mae_mod_1H_zero_nb)
 
-models_1H <- c("pois","q_pois","nb",
-               "h_pois","h_nb",
-               "zer_pois","zer_nb")
+models_1H <- c("Poisson","Quasi-Poisson","Negative Binomial",
+#               "h_pois","h_nb",
+               "Zero (Poisson)","Zero (Neg. Binomial)")
 
-data.frame(models_1H, rmse_1H, mae_1H)%>% 
-  arrange(rmse_1H)
+#data.frame(models_1H, rmse_1H, mae_1H)%>% 
+#  arrange(rmse_1H)
+```
+
+```{r table.model.results, eval=T, echo=F, message=F, warning=F, include=T}
+data.frame(Models=models_1H, RMSE=rmse_1H, MAE=mae_1H)%>% 
+  arrange(rmse_1H) %>% kable() %>%
+  kable_paper("hover", full_width = F)
 ```
 
 ## Model Results Visualization
 
-- Plot of the preds and actuals for best scoring model
+- Plot of the preds and actuals for best scoring model (Zero Poisson)
 
-```{r display.top.model.preds, eval=F, echo=F, message=F, warning=F, include=T, fig.height=5}
-pred_1H_zero_pois_plot <- predict(mod_1H_zero_pois, 
-                                  newdata=test_1H[test_1H$bikes.avail.count!=0,],
-                                  type = "response")
-
-plot(test_1H$bikes.avail.count[test_1H$bikes.avail.count!=0],type = "b",col="red")
-lines(round(pred_1H_zero_pois_plot),col="blue")
+```{r display.top.model.preds, eval=T, echo=F, message=F, warning=F, include=T, fig.height=5}
+plot(test_1H$bikes.avail.count[1:300],type = "b",col="red")
+lines(round(pred_1H_zero_pois[1:300]),col="blue")
 ```
+
 
 ## Availability Prediction
 
@@ -676,7 +589,7 @@ lines(round(pred_1H_zero_pois_plot),col="blue")
 predict_num_bikes_avail <- function(longitude, latitude, time, day)
 ```
   
-```{r prediction.function, eval=F, echo=F, message=F, warning=F, include=T}
+```{r prediction.function, eval=T, echo=F, message=F, warning=F, include=T}
 predict_num_bikes_avail <- function(longitude, latitude, time, day) {
   #longitude: -73.960859
   #latitude: 40.67355
@@ -688,14 +601,14 @@ predict_num_bikes_avail <- function(longitude, latitude, time, day) {
   closest_station <- nn2(stations_attrs_trim_bk[, 9:10], query=location, k=1)
   inp_cluster <- stations_attrs_trim_bk[closest_station$nn.idx,]$cluster
 
-  print(inp_cluster)
+  #print(inp_cluster)
   
   # Create input for prediction
-  bike_avail_query <- data.frame(matrix(nrow = 1,data = c(inp_cluster, 0, time, day)))
-  colnames(bike_avail_query) <- c("cluster", "bikes.avail.count", "time", "weekday")
+  bike_avail_query <- data.frame(matrix(nrow = 1, data = c(inp_cluster, 0, time, day)))
+  colnames(bike_avail_query) <- c("cluster", "bikes.avail.count", "time", "day")
 
   # Predict using Model: mod1
-  num_bikes_avail <- predict.glm(mod_1H_zero_pois, newdata = bike_avail_query, type = "response")
+  num_bikes_avail <- predict(mod_1H_zero_pois, newdata = bike_avail_query, type = "response")
   # Take floor of prediction to ensure whole number
   num_bikes_avail <- as.integer(floor(num_bikes_avail))
   
@@ -703,15 +616,16 @@ predict_num_bikes_avail <- function(longitude, latitude, time, day) {
 }
 ```
 
-```{r prediction.one, eval=F, echo=T, message=F, warning=F, include=T}
-predict_num_bikes_avail(-73.960859, 40.67355, "08:30:00", "Sat")
+```{r prediction.one, eval=T, echo=T, message=F, warning=F, include=T}
+predict_num_bikes_avail(-73.960859, 40.67355, "22:00:00", "WDAY")
 ```
 
 TODO
 
-```{r prediction.two, eval=F, echo=T, message=F, warning=F, include=T}
-predict_num_bikes_avail(-73.960859, 40.67355, "08:30:00", "Sat")
+```{r prediction.two, eval=T, echo=T, message=F, warning=F, include=T}
+predict_num_bikes_avail(-73.960859, 40.67355, "08:00:00", "WKND")
 ```
+
 
 ## Current Achievements
 
