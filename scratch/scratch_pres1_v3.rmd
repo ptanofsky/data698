@@ -228,8 +228,8 @@ Time lapse of surplus or shortage for every NYC docking station
 
 \begin{figure}
   \centering
-  \subfloat[5 a.m.]{\includegraphics[width=3cm,trim={5cm 1cm 5cm 1cm}]{cb_stations_surplus_5A.jpg}}\hfil
-  \subfloat[8 a.m.]{\includegraphics[width=3cm,trim={1cm 1cm 1cm 1cm}]{cb_stations_surplus_8A.jpg}}\hfil 
+  \subfloat[5 a.m.]{\includegraphics[width=3cm,]{cb_stations_surplus_5A.jpg}}\hfil
+  \subfloat[8 a.m.]{\includegraphics[width=3cm]{cb_stations_surplus_8A.jpg}}\hfil 
   \subfloat[11 a.m.]{\includegraphics[width=3cm]{cb_stations_surplus_11A.jpg}} 
 
   \subfloat[2 p.m.]{\includegraphics[width=3cm]{cb_stations_surplus_2P.jpg}}\hfil   
@@ -481,7 +481,7 @@ Generalized Linear Models for Count Data
   - `pscl` library
   
 
-```{r}
+```{r impute.avail.to.capacity, eval=T, echo=F, message=F, warning=F, include=F}
 stations_bike_avail_by_time_1H_imp <- stations_bike_avail_by_time_1H
 
 
@@ -507,19 +507,21 @@ stations_bike_avail_by_time_1H_imp$bikes.avail.count <- ifelse(stations_bike_ava
 set.seed(8675309)
 index <- sample(2, nrow(stations_bike_avail_by_time_1H_imp), replace = TRUE, p=c(0.75, 0.25))
 #index <- sample(2, nrow(stations_bike_avail_by_time_1H), replace = TRUE, p=c(0.75, 0.25))
-train_1H <- stations_bike_avail_by_time_1H[index==1,]
-test_1H <- stations_bike_avail_by_time_1H[index==2,]
+train_1H <- stations_bike_avail_by_time_1H_imp[index==1,]
+test_1H <- stations_bike_avail_by_time_1H_imp[index==2,]
 
 # Sample Variance is 313
 #var(stations_bike_avail_by_time_1H$bikes.avail.count)
-n <- length(stations_bike_avail_by_time_1H)
+n <- length(stations_bike_avail_by_time_1H_imp)
 # Population variance
 #var(stations_bike_avail_by_time_1H$bikes.avail.count)*(n-1)/n
 # Mean is 13
 #mean(stations_bike_avail_by_time_1H$bikes.avail.count)
 
 # Over dispersion exists
+```
 
+```{r model.pois.1H.intervals, eval=T, echo=F, message=F, warning=F, include=T}
 mod_1H_pois <- glm(bikes.avail.count ~ cluster + time + day, data = train_1H, family ="poisson")
 #summary(mod_1H_pois)
 
@@ -529,28 +531,36 @@ mod_1H_pois <- glm(bikes.avail.count ~ cluster + time + day, data = train_1H, fa
 pred_1H_pois <- predict.glm(mod_1H_pois, newdata = test_1H, type = "response")
 rmse_mod_1H_pois <- ModelMetrics::rmse(test_1H$bikes.avail.count,floor(pred_1H_pois))
 mae_mod_1H_pois <- mae(test_1H$bikes.avail.count,floor(pred_1H_pois))
+```
 
+```{r model.qpois.1H.intervals, eval=T, echo=F, message=F, warning=F, include=T}
 mod_1H_qp <- glm(bikes.avail.count ~ cluster + time + day, data = train_1H, family ="quasipoisson")
 #summary(mod_1H_qp)
 
 pred_1H_qp <- predict.glm(mod_1H_qp, newdata=test_1H, type = "response")
 rmse_mod_1H_qp <- ModelMetrics::rmse(test_1H$bikes.avail.count,floor(pred_1H_qp))
 mae_mod_1H_qp <- mae(test_1H$bikes.avail.count,floor(pred_1H_qp))
+```
 
+```{r model.nb.1H.intervals, eval=T, echo=F, message=F, warning=F, include=T}
 mod_1H_nb <- glm.nb(bikes.avail.count ~ cluster + time + day, data=train_1H)
 #summary(mod_1H_nb)
 
 pred_1H_nb <- predict.glm(mod_1H_nb, newdata=test_1H, type = "response")
 rmse_mod_1H_nb <- ModelMetrics::rmse(test_1H$bikes.avail.count,floor(pred_1H_nb))
 mae_mod_1H_nb <- mae(test_1H$bikes.avail.count,floor(pred_1H_nb))
+```
 
+```{r model.zerop.1H.intervals, eval=T, echo=F, message=F, warning=F, include=T}
 mod_1H_zero_pois <- zeroinfl(bikes.avail.count ~ cluster + time + day, data=train_1H, dist = "poisson")
 #summary(mod_1H_zero_pois)
 
 pred_1H_zero_pois <- predict(mod_1H_zero_pois, newdata=test_1H,type = "response")
 rmse_mod_1H_zero_pois <- ModelMetrics::rmse(test_1H$bikes.avail.count,floor(pred_1H_zero_pois))
 mae_mod_1H_zero_pois <- mae(test_1H$bikes.avail.count,floor(pred_1H_zero_pois))
+```
 
+```{r model.zeronb.1H.intervals, eval=T, echo=F, message=F, warning=F, include=T}
 mod_1H_zero_nb <- zeroinfl(bikes.avail.count ~ cluster + time + day, data=train_1H,dist = "negbin")
 #summary(mod_1H_zero_nb)
 
@@ -565,7 +575,9 @@ mae_mod_1H_zero_nb <- mae(test_1H$bikes.avail.count,floor(pred_1H_zero_nb))
 #pred_1H_hurd_pois <- predict(mod_1H_hurd_pois, newdata=test_1H, type = "response")
 #rmse_mod_1H_hurd_pois < -ModelMetrics::rmse(test_1H$bikes.avail.count,floor(pred_1H_hurd_pois))
 #mae_mod_1H_hurd_pois <- mae(test_1H$bikes.avail.count,floor(pred_1H_hurd_pois))
+```
 
+```{r model.results.prep, eval=T, echo=F, message=F, warning=F, include=T}
 rmse_1H <- c(rmse_mod_1H_pois, rmse_mod_1H_qp, rmse_mod_1H_nb,
 #             rmse_mod_1H_hur_pois, rmse_mod_1H_hu_nb,
              rmse_mod_1H_zero_pois, rmse_mod_1H_zero_nb)
