@@ -1,5 +1,5 @@
 ---
-title: "Predicting Citi Bike Availability in Brooklyn"
+title: "Predicting Citi Bike Availability in NYC"
 subtitle: |
   | DATA 698 Research Project
   | CUNY Fall 2022
@@ -43,7 +43,7 @@ library(kableExtra)
 
 ## Citi Bike Availability
 
-Predict bike availability to avoid the empty racks
+Predict bike availability to avoid an empty docking station
 
 \begin{figure}
   \centering
@@ -58,11 +58,11 @@ Predict bike availability to avoid the empty racks
 
 Problem
 
-- Citi Bike offers live map of availability and the Lyft app provides real-time availability for immediate bike rental but the availability of a bike at a location at a future date and time is not guaranteed
+- Citi Bike offers live map of availability for immediate bike rental but the availability of a bike at a location at a future date and time is not guaranteed
 
 Objectives:
 
-- Understand Citi Bike usage and availability patterns across New York City
+- Construct a model of the bikeshare system usage and availability patterns across New York City
 
 - Predict the number of available bikes in Brooklyn within a quarter mile of a given location with user-friendly inputs
 
@@ -135,12 +135,12 @@ User-friendly availability prediction
 ```{r read.trip.data, echo=F, message=F, warning=F, include=F, eval=T}
 # Create additional columns of pertinence
 # weekday, day of the month, trip duration in minutes, start hour
-#citibike_202208 <- fread("data/202208-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
-#citibike_202209 <- fread("data/202209-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
-#citibike_202210 <- fread("data/202210-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE) %>%
+citibike_202208 <- fread("data/202208-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
+citibike_202209 <- fread("data/202209-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
+citibike_202210 <- fread("data/202210-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE)
 
-citibike <- fread("data/202210-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE) %>%
-#citibike <- bind_rows(citibike_202208, citibike_202209, citibike_202210) %>%
+#citibike <- fread("data/202210-citibike-tripdata.csv", data.table=FALSE, check.names=TRUE) %>%
+citibike <- bind_rows(citibike_202208, citibike_202209, citibike_202210) %>%
   mutate(day = factor(mday(ymd_hms(started_at))),
          start.hour=factor(hour(ymd_hms(started_at))),
          weekday = lubridate::wday(ymd_hms(started_at), label=TRUE, abbr=TRUE),
@@ -204,13 +204,14 @@ System-wide view of surplus or shortage for every NYC docking station
 :::: column
 
 \begin{center}
-  \includegraphics[trim={0 0 5cm 0},clip]{stations_surplus_sum.jpg}
+  \includegraphics[trim={5cm 1cm 5cm 1cm},clip]{stations_surplus_sum.jpg}
 \end{center}
 
 ::::
 
 :::: column
 
+\vspace{1in}
 Docking Station Color
 
 - Blue: Surplus
@@ -227,8 +228,8 @@ Time lapse of surplus or shortage for every NYC docking station
 
 \begin{figure}
   \centering
-  \subfloat[5 a.m.]{\includegraphics[width=3cm]{cb_stations_surplus_5A.jpg}}\hfil
-  \subfloat[8 a.m.]{\includegraphics[width=3cm]{cb_stations_surplus_8A.jpg}}\hfil 
+  \subfloat[5 a.m.]{\includegraphics[width=3cm,trim={5cm 1cm 5cm 1cm}]{cb_stations_surplus_5A.jpg}}\hfil
+  \subfloat[8 a.m.]{\includegraphics[width=3cm,trim={1cm 1cm 1cm 1cm}]{cb_stations_surplus_8A.jpg}}\hfil 
   \subfloat[11 a.m.]{\includegraphics[width=3cm]{cb_stations_surplus_11A.jpg}} 
 
   \subfloat[2 p.m.]{\includegraphics[width=3cm]{cb_stations_surplus_2P.jpg}}\hfil   
@@ -259,7 +260,7 @@ Step 2: Apply Generalized Linear Models
   - Count Models: Poisson, Negative Binomial, Zero-Inflated
 
 
-## Stations with Zero Bike Availability
+## Model Decision: Zero Bike Availability
 
 Frequency of zero bikes available per docking station in Brooklyn
 
@@ -267,11 +268,11 @@ Frequency of zero bikes available per docking station in Brooklyn
 - Instance: 15-minute interval
 
 \begin{center}
-  \includegraphics[width=0.5\textwidth, height=\textheight, keepaspectratio]{bk_stations_zero_avail.jpg}
+  \includegraphics[width=0.6\textwidth, keepaspectratio,trim={5cm 4cm 0cm 0cm},clip]{bk_stations_zero_avail.jpg}
 \end{center}
 
 
-## Rebalancing Example
+## Model Decision: Rebalancing
 
 Inconsistent bike availability at Docking Station 3582 in Brooklyn
 
@@ -328,7 +329,7 @@ Model Methodologies
 - Clusters: 213 (2.23 stations/cluster)
 
 \begin{center}
-  \includegraphics[width=0.5\textwidth, height=\textheight, keepaspectratio]{bk_stations_by_cluster.jpg}
+  \includegraphics[width=0.55\textwidth, keepaspectratio,trim={6cm 4cm 6cm 4cm},clip]{bk_stations_by_cluster.jpg}
 \end{center}
 
 
@@ -336,7 +337,7 @@ Model Methodologies
 
 Histogram of availability based on 1HR intervals for Brooklyn clusters
 
-- High frequency near 0 and 2 and plateaus at docking station capacities
+- High frequency at 0 and plateaus at docking station capacities
 
 ```{r display.bk.freqOfZero.by.cluster, echo=F, message=F, warning=F, include=T, fig.height=5}
 # Read in the csv of the API responses which have been wrangled together
@@ -441,7 +442,7 @@ stations_bike_avail_by_time_1H <- stations_bike_avail_by_time_1H %>%
 # Table of availability based on 1HR intervals
 tab_1H <- table(stations_bike_avail_by_time_1H$bikes.avail.count)
 
-# This plot shows the available bike count frequencies given 1HR intervals and Brooklyn station clusters for the 2 weeks. 0 is the most frequent count and filterd at 150, just to provide some sort of upper bound
+# This plot shows the available bike count frequencies given 1HR intervals and Brooklyn station clusters for the 2 weeks. 0 is the most frequent count and filtered at 150, just to provide some sort of upper bound
 
 # There appears to be a max around 22 or so as the distribution drops off just before 25, likely a result of docking station capacity
 
@@ -449,7 +450,7 @@ tab_1H_df <- as.data.frame(tab_1H)
 
 tab_1H_df$Var1 <- as.integer(tab_1H_df$Var1)
 
-# Distrbution of count results
+# Distribution of count results
 p_distro_avail_counts <- tab_1H_df %>%
   filter(Var1 < 150) %>%
   ggplot(aes(x=Var1, y=Freq)) +
@@ -496,10 +497,7 @@ stations_bike_avail_by_time_1H_imp$bikes.avail.count <- ifelse(stations_bike_ava
 ```
 
 
-## Model Results 1-Hour Interval
-
-- Certain input to model based on 1 hour intervals below
-- Results table
+## Model Results
 
 ```{r models.1H.intervals, eval=T, echo=F, message=F, warning=F, include=T}
 #stations_bike_avail_by_time_1H <- stations_bike_avail_by_time_no_timestamp %>%
@@ -513,14 +511,14 @@ train_1H <- stations_bike_avail_by_time_1H[index==1,]
 test_1H <- stations_bike_avail_by_time_1H[index==2,]
 
 # Sample Variance is 313
-var(stations_bike_avail_by_time_1H$bikes.avail.count)
+#var(stations_bike_avail_by_time_1H$bikes.avail.count)
 n <- length(stations_bike_avail_by_time_1H)
 # Population variance
-var(stations_bike_avail_by_time_1H$bikes.avail.count)*(n-1)/n
+#var(stations_bike_avail_by_time_1H$bikes.avail.count)*(n-1)/n
 # Mean is 13
-mean(stations_bike_avail_by_time_1H$bikes.avail.count)
+#mean(stations_bike_avail_by_time_1H$bikes.avail.count)
 
-# Overdispersion exists
+# Over dispersion exists
 
 mod_1H_pois <- glm(bikes.avail.count ~ cluster + time + day, data = train_1H, family ="poisson")
 #summary(mod_1H_pois)
@@ -571,6 +569,8 @@ mae_mod_1H_zero_nb <- mae(test_1H$bikes.avail.count,floor(pred_1H_zero_nb))
 rmse_1H <- c(rmse_mod_1H_pois, rmse_mod_1H_qp, rmse_mod_1H_nb,
 #             rmse_mod_1H_hur_pois, rmse_mod_1H_hu_nb,
              rmse_mod_1H_zero_pois, rmse_mod_1H_zero_nb)
+# Calculate normalized RMSE with 246 as the max bike avail count
+rmse_1H_norm <- rmse_1H/246
 mae_1H <- c(mae_mod_1H_pois, mae_mod_1H_qp, mae_mod_1H_nb,
 #            mae_mod_1H_hur_pois, mae_mod_1H_qp,
             mae_mod_1H_zero_pois, mae_mod_1H_zero_nb)
@@ -620,56 +620,26 @@ miss_zero_z_nb <- df_for_plot %>%
   filter(Zero.NB.Prediction > 0 & Actual == 0) %>%
   count()
 
-miss_zero_1H <- c(miss_zero_pois, miss_zero_qp, miss_zero_nb,
-            miss_zero_z_p, miss_zero_z_nb)
+miss_zero_1H <- c(miss_zero_pois[1,1], miss_zero_qp[1,1], miss_zero_nb[1,1],
+            miss_zero_z_p[1,1], miss_zero_z_nb[1,1])
 ```
 
+
 ```{r table.model.results, eval=T, echo=F, message=F, warning=F, include=T}
-data.frame(Model=models_1H, RMSE=rmse_1H, MAE=mae_1H, `Missed Zero`=miss_zero_1H) %>% 
-  arrange(rmse_1H) %>% kable() %>%
+#RMSE.Norm=rmse_1H_norm
+data.frame(Model=models_1H, RMSE=rmse_1H, MAE=mae_1H, Missed.Zero=miss_zero_1H) %>% 
+  arrange(rmse_1H) %>% kable(digits = 4) %>%
   kable_paper("hover", full_width = F)
 ```
 
-17715 rows for Prediction vs Actual
 
-Poisson and QP predicted a higher number of Zero compared to Zero inflated, but because the zero is in line with the overall distribution, shouldn't be too surprised.
-
-Zero Poisson with floor
-(Prediction>0 & Actual==0) is 280
-Zero NB
-(Prediction>0 & Actual==0) is 280
-Poisson
-(Prediction>0 & Actual==0) is 263
-QP
-(Prediction>0 & Actual==0) is 263
-NB
-(Prediction>0 & Actual==0) is 263
-
-Hurdle Poisson with floor
-(Prediction>0 & Actual==0) is 282
-
-
-
-397 rows in which actual availability is zero
-Zero Pois
-
-8 Clusters have a Prediction > 0 but Actual of 0 with basic Poisson model
-
-- Poisson regression equation
+Selection: Poisson regression equation
 
 \begin{equation} 
-log(bikes) = \alpha + \beta_1\cdot cluster + \beta_2 \cdot time + \beta_3 \cdot day
+log(bikes) = 3.9209 + \beta_1\cdot cluster + \beta_2 \cdot time + \beta_3 \cdot day
 \end{equation} 
 
-Criteria, overall each model works well, but the Poisson has the highest number of predicted Zeros and slighter lower count of Prediction greater than 0 while the Actual is 0. Given this would be the frustrating for user, primary deciding criteria is the ability to predict 0 with accuracy
-
-58 cluster coefficients greater than zero
-154 clusters with coefficient less than zero
-
-7 time coefficients with value greater than zero (morning times)
-16 time coefficients with value less than zero
-
-1 day coefficient less than zero (weekend)
+Second best RMSE and lowest count of missed Zero availability
 
 
 ## Model Results Visualization
@@ -695,9 +665,7 @@ p_pred_vs_actual
 
 ## Availability Prediction
 
-Model prediction inputs
-
-- Longitude and Latitude (GPS location of smartphone)
+- Longitude and Latitude (GPS location of user)
 - Hour of the day (dropdown proposed)
 - Weekday or Weekend (dropdown proposed)
 
@@ -727,13 +695,15 @@ predict_num_bikes_avail <- function(longitude, latitude, time, day) {
   colnames(bike_avail_query) <- c("cluster", "bikes.avail.count", "time", "day")
 
   # Predict using Model: mod1
-  num_bikes_avail <- predict(mod_1H_zero_pois, newdata = bike_avail_query, type = "response")
+  num_bikes_avail <- predict.glm(mod_1H_pois, newdata = bike_avail_query, type = "response")
   # Take floor of prediction to ensure whole number
   num_bikes_avail <- as.integer(floor(num_bikes_avail))
   
   return(c(num_bikes_avail, inp_cluster))
 }
 ```
+
+(-73.960859, 40.67355, "22:00:00", "WDAY")
 
 ```{r prediction.one, eval=T, echo=F, message=F, warning=F, include=T}
 # Crown Heights
@@ -743,6 +713,8 @@ prediction_CH <- predict_num_bikes_avail(-73.960859, 40.67355,
 print(paste0("Crown Heights - Available Bikes: ", prediction_CH[1], "; Cluster: ", prediction_CH[2]))
 ```
 
+(-73.9617, 40.7192, "18:00:00", "WKND")
+
 ```{r prediction.two, eval=T, echo=F, message=F, warning=F, include=T}
 # Williamsburg
 prediction02_WB <- predict_num_bikes_avail(-73.9617, 40.7192,
@@ -750,6 +722,8 @@ prediction02_WB <- predict_num_bikes_avail(-73.9617, 40.7192,
 
 print(paste0("Williamsburg - Available Bikes: ", prediction02_WB[1], "; Cluster: ", prediction02_WB[2]))
 ```
+
+(-74.00509, 40.64338, "17:00:00", "WDAY")
 
 ```{r prediction.three, eval=T, echo=F, message=F, warning=F, include=T}
 # Sunset Park
@@ -767,6 +741,7 @@ Bike Availability prediction model for Brooklyn
   - Location-based
 - Poisson Model 
   - Simplest count model
+  - Second best RMSE value
   - Better predictor of zero availability
 
 Ridership usage patterns
@@ -775,10 +750,14 @@ Ridership usage patterns
   - System wide evaluation of NYC
   - Weekly and daily bike trip patterns
 
-## Future Works
+## Future Work
 
 - Deploy web application or smartphone app to use GPS location
-- Model of all New York City
-- Real-time clustering to ensure all docking stations within quarter-mile of user
+- Improve zero availability accuracy
+- Model all docking stations of New York City
+- Real-time clustering to identify all docking stations within quarter-mile of user at the time
 - Increase amount of availability data
 
+## Thank You
+
+Thank you Dr. Paul Bailo along with all the CUNY professors, staff, and fellow students for support and guidance.
