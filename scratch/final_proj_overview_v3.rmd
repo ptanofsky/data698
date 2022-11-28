@@ -379,8 +379,6 @@ The time-series chart 'Ride Trips by Hour' confirms the higher usage by members 
 
 The weekly seasonal plot 'Seasonal plot: Weekly Trip Counts' denotes the same pattern week over week. Based on the plot, the bike trips show consistency every week based on member users utilizing the bikes for work and casual users renting the bikes for recreational purposes.
 
-By average count of trips per day of the week, Wednesday appears as the highest volume day. Given the data comes from August through October 2022, we believe this observation is a result of pandemic return-to-office policies in which individuals are more likely to return to office during the middle of the week instead of Monday or Friday for those with hybrid schedules.
-
 ### Duration of Bike Trips
 
 Next, we evaluate the duration of bike trips to better understand longevity of individual bike unavailability along with reason for the trip. As expected, the average bike trip for all users and all times are below 30 minutes as the rental defined time is 30 minutes. Users will incur an additional fee beyond the base time limit.
@@ -517,23 +515,6 @@ rasterImage(img,-1,0,12,10)
 
 The plot of docking stations across the New York City maps the location of every docking station along with a color to indicate a net positive, net negative or even amount of bikes for the given month. The blue stations are net positive, and red stations indicate net negative while green stations are even for the entire month. Of the 1,716 docking stations represented, 910 ended with a surplus, 771 with a shortage, and 35 with an even count.
 
-### Docking Station Surplus: Weekday Pattern
-
-To better understand the daily flow of bikes, the average arrivals and departures on Wednesdays of the three-month period per docking station are plotted below by hour of the day. The selection of Wednesday, the day of highest use, provides an accurate representation of weekday activity. Starting at 5 a.m., most docking stations are colored green, likely indicating little movement of bikes at such an early hour. At 8 a.m., the docking stations in Midtown and the Financial District, two concentrated are of commercial offices. are primarily blue as individuals make their way to work. Also at 8 a.m., red docking stations populate the more residential areas of the upper West Side and the East Village. At 11 a.m., most docking stations are green across the city as the morning rush has subsided. Later at 2 p.m., the plot remains similar to 11 a.m. as the lunch movement has subsided and before evening rush our. Then at 5 p.m., the inverse of the 8 a.m. map appears. Now, Midtown and the Financial District areas are red representing the departures of workers from the commercial centers. Also at 5 p.m., blue docking stations color the Upper West Side and East Village as individuals return home from work. Finally during the 8 p.m. hour, the patterns remains similar to the 5 p.m. plot as bike movement continues away from commercial areas toward residential areas with an increasing number of green docking stations throughout the city.
-
-\begin{figure}[H]
-  \centering
-  \subfloat[5 a.m.]{\includegraphics[width=0.49\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_5A.jpg}}\hfil
-  \subfloat[8 a.m.]{\includegraphics[width=0.49\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_8A.jpg}}
-  
-  \subfloat[11 a.m.]{\includegraphics[width=0.49\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_11A.jpg}}\hfil  
-  \subfloat[2 p.m.]{\includegraphics[width=0.49\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_2P.jpg}}
-  
-  \subfloat[5 p.m.]{\includegraphics[width=0.49\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_5P.jpg}}\hfil
-  \subfloat[8 p.m.]{\includegraphics[width=0.49\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_8P.jpg}}
-  \caption{Weekday Pattern: Average Wednesday}
-\end{figure}
-
 ### Surplus by Borough
 
 With almost an even number of docking stations with a net shortage and a net surplus, we evaluate the shortage and surplus by borough.
@@ -598,6 +579,23 @@ stations_attrs_trim_sur %>%
 
 The plot denotes a near normal distribution for the four boroughs included in the dataset --- the Bronx, Brooklyn, Manhattan, and Queens. The balanced distribution across the four NYC boroughs likely demonstrates the bike trips are contained within a borough. With average duration less than 10 minutes for member users and less than 20 minutes for casual users, the distance traveled for all bike trips is likely less than three miles. The 30-minute base rental rate dictates a limited travel distance which inhibits users from traveling across boroughs via the bikeshare system.
 
+### Docking Station Surplus: Weekday Pattern
+
+To better understand the daily flow of bikes, the average arrivals and departures on Wednesdays of the three-month period per docking station are plotted below by hour of the day. The selection of Wednesday, the day of highest use, provides an accurate representation of weekday activity. Starting at 5 a.m., most docking stations are colored green, likely indicating little movement of bikes at such an early hour. At 8 a.m., the docking stations in Midtown and the Financial District, two concentrated are of commercial offices. are primarily blue as individuals make their way to work. Also at 8 a.m., red docking stations populate the more residential areas of the upper West Side and the East Village. At 11 a.m., most docking stations are green across the city as the morning rush has subsided. Later at 2 p.m., the plot remains similar to 11 a.m. as the lunch movement has subsided and before evening rush our. Then at 5 p.m., the inverse of the 8 a.m. map appears. Now, Midtown and the Financial District areas are red representing the departures of workers from the commercial centers. Also at 5 p.m., blue docking stations color the Upper West Side and East Village as individuals return home from work. Finally during the 8 p.m. hour, the patterns remains similar to the 5 p.m. plot as bike movement continues away from commercial areas toward residential areas with an increasing number of green docking stations throughout the city.
+
+\begin{figure}
+  \centering
+  \textbf{Weekday Pattern: Average Wednesday}\par\medskip
+  \subfloat[5 a.m.]{\includegraphics[width=0.49\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_5A.jpg}}\hfil
+  \subfloat[8 a.m.]{\includegraphics[width=0.49\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_8A.jpg}}
+  
+  \subfloat[11 a.m.]{\includegraphics[width=0.49\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_11A.jpg}}\hfil  
+  \subfloat[2 p.m.]{\includegraphics[width=0.49\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_2P.jpg}}
+  
+  \subfloat[5 p.m.]{\includegraphics[width=0.49\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_5P.jpg}}\hfil
+  \subfloat[8 p.m.]{\includegraphics[width=0.49\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_8P.jpg}}
+\end{figure}
+
 ```{r build.graph.object, echo=F, message=F, warning=F, include=T, eval=F}
 # EVAL IS FALSE ... CONSIDER REMOVING!!!
 # This removed the duplicate rows by transposing the start and end station ids
@@ -656,9 +654,11 @@ p_rebalance_station
 
 he map plot shows the docking stations with frequency of zero bike availability. Most docking stations have a lower frequency of 50 or less occurrences across the 1,344 15-minute intervals of the two week period. We do notice a number of red stations indicating high frequency of zero available bikes. These stations could be considered for greater rebalancing. This plot supports the need to consider the zero-inflated model for our purposes of prediction.
 
-\begin{center}
-  \includegraphics[width=0.8\textwidth, keepaspectratio,trim={5cm 4cm 0cm 0cm},clip]{bk_stations_zero_avail.jpg}
-\end{center}
+\begin{figure}
+  \centering
+  \textbf{Zero Availability by Docking Station}\par\medskip
+  \includegraphics[width=0.7\textwidth, keepaspectratio,trim={5cm 4cm 0cm 0cm},clip]{bk_stations_zero_avail.jpg}
+\end{figure}
 
 ---
 
@@ -672,15 +672,17 @@ With over 1,700 stations and a walking distance of 400 meters (or one quarter of
     \item \textbf{Clusters:} 213 (2.23 stations/cluster)
 \end{myitemize}
 
-\begin{center}
-  \includegraphics[width=0.8\textwidth, keepaspectratio,trim={6cm 4cm 6cm 4cm},clip]{bk_stations_by_cluster.jpg}
-\end{center}
+\begin{figure}
+  \centering
+  \textbf{Docking Stations Colored by Cluster}\par\medskip
+  \includegraphics[width=0.7\textwidth, keepaspectratio,trim={6cm 4cm 6cm 4cm},clip]{bk_stations_by_cluster.jpg}
+\end{figure}
 
 ### Bike Availability by Cluster
 
 The histogram shows the frequency of bike availability counts across all the Brooklyn clusters for each 1-hour interval for the two-week timespan. The value of zero is the most frequent value followed by two. A plateau is visible starting around 25 which marks a station capacity. A similar plateau also occurs around 60, close to double the single station capacity which would be expected given most clusters are two docking stations. The plot confirms the likelihood of zero bike availability.
 
-```{r display.bk.freqOfZero.by.cluster, echo=F, message=F, warning=F, include=T, fig.height=5, cache=T}
+```{r display.bk.freqOfZero.by.cluster, echo=F, message=F, warning=F, include=T, fig.height=4, cache=T}
 # Read in the csv of the API responses which have been wrangled together
 stations_with_bike_avail <- read.csv('bike_avail_by_station_and_time.csv', row.names = 1, header= TRUE, check.names = FALSE)
 
@@ -977,7 +979,9 @@ data.frame(Model=models_stats, Deviance=deviances, Degrees.Freedom=degfrees, AIC
 plot_grid(p_resid_pois, p_resid_qp, p_resid_nb)
 ```
 
-**Zero-Inflated Model:** A Zero-Inflated Model builds a model for a distribution that allows for frequent zero-values observations. The Zero-Inflated models used in this research use a base of Poisson and Negative Binomial.
+The plots of the residuals vs. the fitted values for Poisson, Quasi-Poisson, and Negative Binomial each indicate heteroscedasticity. The evidence of heteroscedasticity shows increasing variance with as the fitted values increase. The Poisson and Quasi-Poisson appear identical while the Negative Binomial plot is quite similar.
+
+**Zero-Inflated Model:** A Zero-Inflated Model builds a model for a distribution that allows for frequent zero-values observations. The Zero-Inflated models used in this research use a base of Poisson (ZIP) and Negative Binomial (ZINB).
 
 ```{r model.zerop.1H.intervals, eval=T, echo=F, message=F, warning=F, include=T, cache=TRUE}
 # ZERO INFLATED: POISSON
@@ -1004,10 +1008,7 @@ mase_mod_1H_zero_nb <- mase(test_1H$bikes.avail.count, floor(pred_1H_zero_nb))
 
 ### Model Results
 
-The count model results show the best predictive performance by measuring the Root-Mean-Square Error (RMSE) and Mean Absolute Error (MAE) as the Poisson and Quasi-Poisson models. Overall, the performance of the models falls in a small range with RMSE ranging in 11.2482 to 12.0320. These results show that the average distance of approximately 11 between the predicted values from the model and the values from the dataset.
-
-To evaluate the 5 models, we made the selection based on the Root-Mean-Square-Error (RMSE) and Mean Average Error (MAE) along with the count of predictions greater than zero when the actual value was zero, noted here as Missed Zero. The Zero-Inflated Poisson based model performed the best according to RMSE and MAE followed by Poisson, Quasi-Poisson, and then Zero Inflated Neg Binomial based model and finally Negative Binomial. Assessing the missed zero column, we notice Poisson, Quasi-Poisson and Negative Binomial with the fewest missed zeros at 263 followed by the Zero-Inflated models with 280 missed zeroes each. As the earlier plot of bike availability count frequency by cluster showed, zero was the highest frequency but did not represent an outlier within the frequency distribution. Perhaps the zero-inflated models performed worse at correctly predicting zeroes because the zero frequency wasn't actually inflated as compared to the other values.
-
+To evaluate the 5 models, we made the selection based on the Root-Mean-Square-Error (RMSE), Mean Average Error (MAE), and Mean Absolute Scaled Error (MASE) along with the count of predictions greater than zero when the actual value was zero, noted here as `Missed.Zero`. The Zero-Inflated Poisson based model performed the best according to RMSE, MAE, and MASE followed by Poisson, Quasi-Poisson, and then Zero Inflated Negative Binomial based model and finally Negative Binomial. Assessing the missed zero column, we notice Poisson, Quasi-Poisson and Negative Binomial with the fewest missed zeros at 263 followed by the Zero-Inflated models with 280 missed zeroes each. Overall, the performance of the models falls in a small range with RMSE ranging in 11.2482 to 12.0320. These results show that the average distance of approximately 11 between the predicted values from the model and the values from the dataset. As the earlier plot of bike availability count frequency by cluster showed, zero was the highest frequency but did not represent an outlier within the frequency distribution. Perhaps the zero-inflated models performed worse at correctly predicting zeroes because the zero frequency wasn't actually inflated as compared to the other values.
 
 ```{r model.results.prep, eval=T, echo=F, message=F, warning=F, include=T}
 rmse_1H <- c(rmse_mod_1H_pois, rmse_mod_1H_qp, rmse_mod_1H_nb,
@@ -1027,8 +1028,11 @@ aic_1H <- c(mod_1H_pois$aic, mod_1H_qp$aic, mod_1H_nb$aic,
 
 pred_zero_1H <- c("163","163","163","133","133")
 
-models_1H <- c("Poisson","Quasi-Poisson","Negative Binomial",
-               "Zero (Poisson)","Zero (Neg. Binomial)")
+models_1H <- c("Poisson",
+               "Quasi-Poisson",
+               "Negative Binomial",
+               "Zero-Infl. (Poisson)",
+               "Zero-Infl. (NB)")
 
 #data.frame(models_1H, rmse_1H, mae_1H)%>% 
 #  arrange(rmse_1H)
@@ -1078,9 +1082,9 @@ data.frame(Model=models_1H, RMSE=rmse_1H, MAE=mae_1H, MASE=mase_1H, Missed.Zero=
   kable_styling(latex_options = "HOLD_position")
 ```
 
-In the end we selected the Quasi-Poisson model because it resulted in the second best RMSE and MAE and had the fewest missed Zero counts. The Quasi-Poisson regression equation is presented for the selected model.
+In the end we selected the Poisson model because it resulted in the second best RMSE and MAE and had the fewest `Missed.Zero` counts despite the variance being greater than the mean. The Poisson regression equation is presented for the selected model.
 
-Selection: Quasi-Poisson regression equation
+Selection: Poisson regression equation
 
 \begin{equation} 
 log(bikes) = 3.9063 + \beta_1\cdot cluster + \beta_2 \cdot time + \beta_3 \cdot day
@@ -1090,7 +1094,7 @@ log(bikes) = 3.9063 + \beta_1\cdot cluster + \beta_2 \cdot time + \beta_3 \cdot 
 
 The test data dataset consisted of over 17,000 rows for prediction. In order to better understand the predictions from the Poisson model against the actual test data values, the plot displays a subset of 100 predictions and the corresponding actual values. The actual values in red extend to the 0 axis while the blue line does not reach the 0 axis as often, again indicating the inability of the model to accurately predict the true zero values. Upon visual inspection, the lines for prediction and actual values do appear consistent.
 
-```{r display.top.model.preds, eval=T, echo=F, message=F, warning=F, include=T, fig.height=5}
+```{r display.top.model.preds, eval=T, echo=F, message=F, warning=F, include=T, fig.height=4.5}
 # Modify the number of rows to consider
 # 17715 rows in DF
 df_for_plot_trim <- df_for_plot[500:600,]
@@ -1114,16 +1118,14 @@ Also considered, but not used was the time series forecasting model approach. Be
 
 ---
 
-## Real-World Prediction Proof of Concept
+### Real-World Prediction Proof of Concept
 
-With an eye toward making the model real-world functional, a simple `R` function was written to predict the number of bikes available based on the user-friendly inputs. First, the longitude and latitude are translated into a cluster identifier based on a nearest neighbor search of the docking stations. Then, with the cluster identifier and other user inputs, the GLM regression model is executed to predict the number of available bikes. The result of three trials indicate the number of available bikes and cluster number. The neighborhood provided is displayed to give the user reference of the longitude and latitude entered.
-
-The user-friendly inputs:
+With an eye toward making the model real-world functional, a simple `R` function was written to predict the number of bikes available based on the user-friendly inputs. First, the longitude and latitude are translated into a cluster identifier based on a nearest neighbor search of the docking stations. Then, with the cluster identifier and other user inputs, the GLM regression model is executed to predict the number of available bikes. The result of three trials indicate the number of available bikes and cluster number. The neighborhood provided is displayed to give the user reference of the longitude and latitude entered. The user-friendly inputs:
 
 \begin{myitemize}
     \item Latitude and longitude (location on map)
-    \item Weekday or Weekend
     \item Hour of the day
+    \item Weekday or Weekend
 \end{myitemize}
 
 ```{r prediction.function.signature, eval=T, echo=F, message=F, warning=F, include=T}
