@@ -18,27 +18,11 @@ nocite: '@*'
 
 ### Abstract
 
-P1
+Using the Citi Bike dataset for NYC-based trips in August through October 2022, we identified a consistent pattern of use dependent on time of day and day of the week. The pattern persists week over week for the months under review. The majority of users are member which indicates the availability of bikes will be dependent on work schedules during weekdays. The surplus and shortage count of bikes by docking station denotes the uneven flow of bikes in some neighborhoods of New York City. The surplus and shortage counts confirm the practice of rebalancing by Citi Bike to ensure availability of bikes despite revealing a high frequency of zero bike availability.
 
-P2
+We constructed a model to predict Citi Bike availability in Brooklyn with the possibility of extension across all of New York City. Using data science principles and common model algorithms, a valuable prediction model was constructed for a user-friendly interaction. Based on location, day of the week, and time of day, the combination of a hierarchical clustering and Poisson count model algorithm can predict the number of available Citi Bikes within a quarter mile. The overall prediction model provides a potential real-world application for individuals planning transportation options ahead of time across New York City.
 
-P3
-
-P1
-
-P2
-
-P3
-
-P1
-
-P2
-
-P3
-
-P2
-
-P3
+In assessing the count models, the Poisson model was selected based on the model metric scores and ability to accurately predict zero availability. The false positive of bike availability when zero bikes available would greatly impact user experience and thus played a key factor in the model selection decision.
 
 **Key words: _Bikeshare, Count Data, Poisson, Negative Binomial, Zero-Inflated_**
 
@@ -55,39 +39,39 @@ P3
 ## Introduction
 
 ### The Author
-Philip Tanofsky is a software engineer lead and a Master's of Data Science candidate at City University of New York - School of Professional Studies. Philip lives with his roommate Speck, a terrier mix, in Brooklyn, New York. Philip would like to thank Dr. Paul Bailo and Alex Ng with support and guidance throughout the process and Evi Wiley for a lifetime of support.
+Philip Tanofsky is a software engineer lead and a Master's of Data Science candidate at City University of New York -- School of Professional Studies. Philip lives with his roommate Speck, a terrier mix, in Brooklyn, New York. Philip would like to thank Dr. Paul Bailo and Alex Ng with support and guidance throughout the process and Evi Wiley for a lifetime of support.
 
 ### The Problem
 
-New York City offers a multitude of transit options including the subway, buses, rideshare, taxis, and since 2013 a bikeshare option known as Citi Bike. The privately owned bikeshare system boasts a total of 25,000 bicycles and over 1,700 stations in New York City, New York in parts of Manhattan, Brooklyn, Queens, and the Bronx along with stations in Jersey City and Hoboken in New Jersey. The bikeshare option provides a solution for the 'first-' and "last-mile" connectivity in urban areas for individuals wanting to access the subway or bus line without walking. Citi Bike offers real-time availability of bicycles through the Citi Bike app, but the availability of a bicycle at the starting location and availability of a docking station upon arrival is not guaranteed at any time. The availability of bicycles is dependent on the riders themselves and the rebalancing strategies of Citi Bike.
+New York City offers a multitude of transit options including the subway, buses, rideshare, taxis, and since 2013 a bikeshare option known as Citi Bike. The privately owned bikeshare system boasts a total of approximately 25,000 bicycles and over 1,700 stations in New York City, New York in parts of Manhattan, Brooklyn, Queens, and the Bronx along with stations in Jersey City and Hoboken in New Jersey. The bikeshare option provides a solution for the "first-" and "last-mile" connectivity in urban areas for individuals wanting to access the subway or bus line without walking. Citi Bike offers real-time availability of bicycles through the Citi Bike app and website, but the availability of a bicycle at the docking station upon arrival is not guaranteed at any time. The availability of bicycles is dependent on the riders themselves and the rebalancing strategies of Citi Bike operators.
 
-The trip data publicly provided by Citi Bike on a monthly basis can be used to examine ridership patterns and directions of flow based on time, date, and type of user (member or casual). This project will attempt to construct a model of the Citi Bike bikeshare system to predict the number of available bikes within a quarter mile based on location and a future date and time. 
+The trip data publicly provided by Citi Bike on a monthly basis and station availability counts available through a Citi Bike supported API can be used to examine ridership patterns and directions of flow based on time, date, and type of user. This project will attempt to construct a model of the Citi Bike bikeshare system to predict the number of available bikes within a quarter mile based on location and a future date and time. 
 
-1. Determine the flow of bicycles throughout the Citi Bike system in New York City to identify neighborhoods with a surplus or shortage of Cit bike availability.
+1. Determine the flow of bicycles throughout the Citi Bike system in New York City to identify neighborhoods with a surplus or shortage of Citi Bike availability.
 
-2. Identify system rebalancing and its impact on the level of availability at a given station or cluster.
+2. Identify system rebalancing and its impact on the level of availability at a given station or cluster of stations.
 
-3. Determine the best model to accurately model the availability of bicycles based on day of the week, time of day, and location?
+3. Determine the best model to accurately predict the availability of bicycles based on day of the week, time of day, and location.
 
 ---
 
 ## Literature Review
 
-For this project, I focus on a variety of algorithm model approaches used to predict bikesharing system station availability along with factors that determine the impacts to trip generation volumes. The literature review identifies the negative binomial based model as a common approach. The literature review also finds other model approaches to assess availability such as LDA, random forest, and neural networks. Finally, I focus the research on bikesharing system rebalancing techniques to better understand how the availability of bikes depends on the movement of bikes separate from user trips.
+For this project, we focus on a variety of algorithm model approaches used to predict bikesharing system station availability along with factors that determine the impacts to trip generation volumes. The literature review identifies the negative binomial based model as a common approach. The literature review also finds other model approaches to assess availability such as LDA, random forest, and neural networks. Finally, we focus the research on bikesharing system rebalancing techniques to better understand how the availability of bikes depends on the movement of bikes separate from user trips.
 
 The literature review focuses primarily on docked, instead of dockless bike-sharing systems across the United States and international locations as the Citi Bike system of New York City is a dock-based system. The project research accounts for model approaches broader than availability prediction to yield a more comprehensive understanding of the strong spatial and temporal nature of the bike-trip data.
 
 ### Negative-Binomial Based Models
 
-A majority of the literature on bikesharing availability focuses on negative binomial models due to the overdispersion of zeros in the station-level data. The negative binomial models often rely on socio-demographic and weather factors in model construction.
+A majority of the literature on bikesharing availability focuses on negative binomial models due to overdispersion and high volume of zeros in the station-level data. The negative binomial models often rely on socio-demographic and weather factors in model construction.
 
-Wang, Lindsey, Schoner, and Harrison (2016) apply log-linear and negative binomial regression models to evaluate the factors of population size, trip attraction and transportation network as primary factors on average daily-station trips. Wang et al. (2016) confirm bikeshare locations near the Minneapolis central business district, college campuses, parks, and bodies of water have higher ridership. Wang et al. (2016) also identify a negative coefficient on the measure of station proximity indicating an over-saturation of bike stations can decrease ridership at the station level.
+Wang, Lindsey, Schoner, and Harrison (2016) apply log-linear and negative-binomial regression models to evaluate the factors of population size, trip attraction and transportation network as primary factors on average daily-station trips. Wang et al. (2016) confirm bikeshare locations near the Minneapolis central business district, college campuses, parks, and bodies of water have higher ridership. Wang et al. (2016) also identify a negative coefficient on the measure of station proximity indicating an over-saturation of bike stations can decrease ridership at the station level.
 
-Hosseinzadeh, Karimpour, and Kluger (2021) assess two micromobility methods, e-scooters and bikesharing, to examine the spatial and temporal factors of ridership using models based on linear regression, negative binomial regression, time series, and generalized additive before focusing on a combined negative binomial generalized additive model to account for the over-dispersion. Hosseinzadeh et al. (2021) identify the amount of rain, existence of thunderstorms, and temperature index as significant factors in ridership. Hosseinzadeh et al. (2021) also find the day of the week along with major holidays and special events impact micromobility use.
+Hosseinzadeh, Karimpour, and Kluger (2021) assess two micromobility methods, e-scooters and bikesharing, to examine the spatial and temporal factors of ridership using models based on linear regression, negative-binomial regression, time series, and generalized additive before focusing on a combined negative-binomial generalized additive model to account for the overdispersion. Hosseinzadeh et al. (2021) identify the amount of rain, existence of thunderstorms, and temperature index as significant factors in ridership. Hosseinzadeh et al. (2021) also find the day of the week along with major holidays and special events impact micromobility use.
 
-Ma, Ji, Jin, Wang, and He (2018) construct an approach based on activity spaces around metro stations which finds the activity space larger on weekdays compared to weekends. Ma et al. (2018) then apply two model types, ordinary least squares (OLS) regression and spatial error model (SEM) with a focus on several socio-demographic, travel-related, and built environment factors that uncover spatial autocorrelation in the trip data. Ma et al. (2018) observe the SEM outperforms the OLS regression based on model fit with results showing proportion of local residents increases activity size on the weekends while high job-density significantly decreases the activity size on the weekdays leading to a severe imbalance of bike availability on weekdays.
+Ma, Ji, Jin, Wang, and He (2018) construct an approach based on activity spaces around metro stations which finds the activity space larger on weekdays compared to weekends. Ma et al. (2018) then apply two model types, ordinary least squares (OLS) regression and spatial error model (SEM) with a focus on several socio-demographic, travel-related, and built-environment factors that uncover spatial autocorrelation in the trip data. Ma et al. (2018) observe the SEM outperforms the OLS regression based on model fit with results showing proportion of local residents increases activity size on the weekends while high job-density significantly decreases the activity size on the weekdays leading to a severe imbalance of bike availability on weekdays.
 
-Wang and Chen (2020) explore built-environment, bicycle-infrastructure, and transit-related factors to predict bikeshare station capacity using several models - negative binomial, zero-inflated negative binomial (ZINB), negative binomial-structural equation model (SEM), and finally a combined ZINB-SEM. The integrated approach of ZINB and SEM addresses the impact of excess zeros found at the station level. Wang and Chen (2020) posit the number of docking stations plays a more important role in attracting ridership over factors such as sidewalk length, population density, job density, and areas of green space. Wang and Chen (2020) determine the number of nearby stations, the number of bicycle racks, and bike route length have a greater impact on trip generation at the station level and also observe food services demonstrate an important role in bikeshare use.
+Wang and Chen (2020) explore built-environment, bicycle-infrastructure, and transit-related factors to predict bikeshare station capacity using several models --- negative binomial, zero-inflated negative-binomial (ZINB), negative binomial-structural equation model (SEM), and finally a combined ZINB-SEM. The integrated approach of ZINB and SEM addresses the impact of excess zeros found at the station level. Wang and Chen (2020) posit the number of docking stations plays a more important role in attracting ridership over factors such as sidewalk length, population density, job density, and areas of green space. Wang and Chen (2020) determine the number of nearby stations, the number of bicycle racks, and bike route length have a greater impact on trip generation at the station level and also observe food services demonstrate an important role in bikeshare use.
 
 Noland, Smart, and Guo (2016) develop trip-generation models that account for proximity of subway stations as a prominent factor. Noland et al. (2016) separate the models by key factors such as day of the week and type of user (subscriber or casual) while controlling for spatial autocorrelation. The results identify clear seasonal and weekly variations in the bikeshare usage. Noland et al. (2016) follow an intuitive approach of dissecting the data to generate several models based on commonalities instead of a single model in order to improve availability forecasting. The results recognize weather and user-base growth as impediments to accurate forecasting.
 
@@ -97,7 +81,7 @@ To broaden the understanding of model approaches to bikesharing availability, th
 
 Li, Huang, and Axhausen (2020) take a different approach for predicting bicycle accessibility by using Dirichlet multinomial regression (DMR) topic modeling based on LDA topic modeling to determine the destination activities for a dockless system while also utilizing a distance decay model. The DMR model predicts the purpose of bike trips based on the points of interest near trip destinations along with arrival times. While the system under consideration is dockless, Li et al. (2020) identify longer trip distances for leisure activities over targeted destinations such as work and school. The model confirms bike accessibility decreases further from the city center and points of interest.
 
-Zhou, Wang, and Li (2019) apply a classification approach to predict the likelihood of an individual selecting bike-sharing or a taxi through spatiotemporal distributions of trip patterns. Zhou et al. (2019) settle on a random forest model based on features including travel distance, time of day, travel directions, weather and land use to predict the mode of transportation. After attempting models based on simple logistic regression and multi-layer neural network, the random forest model proved most valuable based on accuracy and better computational cost.
+Zhou, Wang, and Li (2019) apply a classification approach to predict the likelihood of an individual selecting bikesharing or a taxi through spatiotemporal distributions of trip patterns. Zhou et al. (2019) settle on a random forest model based on features including travel distance, time of day, travel directions, weather and land use to predict the mode of transportation. After attempting models based on simple logistic regression and multi-layer neural network, the random forest model proved most valuable based on accuracy and better computational cost.
 
 Lin, He, and Peeta (2018) predict hourly usage at a station level using a graph convolutional neural network with data-driven graph filter (GCNN-DDGF) for adjacency matrices based on spatial distance, demand, average trip duration, and demand correlation. Lin et al. (2018) find the neural network uncovers hidden heterogeneous pairwise correlations between stations labeled as communities to predict the station-level demand without reliance on the weather, socio-demographic, and built environment factors common among most bikesharing system research.
 
@@ -105,11 +89,11 @@ Hyland, Hong, Pinto and Chen (2018) use a hybrid approach combining clustering a
 
 ### System Rebalancing
 
-Finally, I wanted to better understand the system rebalancing efforts that directly impact the availability of bikes. Many of the bikesharing systems utilize a form of rebalancing to ensure a greater availability of bikes during high-demand times and high-demand locations. The rebalancing by definition disrupts the natural pattern of user-generated trips.
+Finally, we wanted to better understand the system rebalancing efforts that directly impact the availability of bikes. Many of the bikesharing systems utilize a form of rebalancing to ensure a greater availability of bikes during high-demand times and high-demand locations. The rebalancing by definition disrupts the natural pattern of user-generated trips.
 
 Qian, Jaller, and Circella (2022) attempt to find an equitable distribution of bikeshare stations through an optimization model defined as a genetic algorithm inspired by natural selection. Qian et al. (2022) find that maximizing revenue through rebalancing results in a smaller network of stations and does not promote accessibility of bikeshare stations to disadvantaged communities. Qian et al. (2022) use the 2016 expansion of Divvy stations in Chicago to evaluate their forecast of additional stations based on two goals: maximizing revenue and improving bikeshare accessibility to disadvantaged communities. Qian et al. (2022) conclude the two goals do not work in concert and thus provide a policy suggestion in which local governments can offer incentives to private companies to improve equitable distribution.
 
-Médard de Chardon, Caruso, and Thomas (2016) focus on existing rebalancing operations through spatial and temporal exploration of the bikeshare trip data across many cities. Medard de Chardon et al. (2016) find rebalancing efforts directly impact the availability of bikes at transit hubs.  Medard de Chardon et al. (2016) conclude the aggregation of spatio-temporal trip flow cannot be strictly understood as the spatial demand and natural flow of trips are influenced by system rebalancing. Chardon et al. (2016) also identify induced demand based on rebalancing. Rebalancing strategies are deemed necessary to maintain a high quality of customer service that possibly run counter to the operations defined SLAs, profit increases, or trip maximizations.
+Médard de Chardon, Caruso, and Thomas (2016) focus on existing rebalancing operations through spatial and temporal exploration of the bikeshare trip data across many cities. Medard de Chardon et al. (2016) find rebalancing efforts directly impact the availability of bikes at transit hubs. Medard de Chardon et al. (2016) conclude the aggregation of spatio-temporal trip flow cannot be strictly understood as the spatial demand, and natural flow of trips are influenced by system rebalancing. Chardon et al. (2016) also identify induced demand based on rebalancing. Rebalancing strategies are deemed necessary to maintain a high quality of customer service that possibly run counter to the operations defined service-level agreements, profit increases, or trip maximizations.
 
 The literature review provides a broad perspective of model algorithms for predicting bikesharing system availability at the station level from negative binomial to neural networks. The research also identifies common factors, including day of the week, weather, and socio-demographic information, that directly impact bikesharing use. Finally, the review of system rebalancing provides additional insight into the greater movement of bikes throughout the system which directly impacts availability and trip generation volumes.
 
@@ -117,25 +101,25 @@ The literature review provides a broad perspective of model algorithms for predi
 
 ## Methodology
 
-At stated previously, our research attempts to answer the following questions:
+As stated previously, our research attempts to answer the following questions:
 
-1. Determine the flow of bicycles throughout the Citi Bike system in New York City to identify neighborhoods with a surplus of bicycles or a dearth of bicycle availability.
+1. Determine the flow of bicycles throughout the Citi Bike system in New York City to identify neighborhoods with a surplus or shortage of Citi Bike availability.
 
-2. Identify system rebalancing and its impact on the level of availability at a given station or cluster.
+2. Identify system rebalancing and its impact on the level of availability at a given station or cluster of stations.
 
-3. Determine the best model to accurately model the availability of bicycles based on day of the week, time of day, and location?
+3. Determine the best model to accurately predict the availability of bicycles based on day of the week, time of day, and location.
 
-Our methodology for answering these questions follows the steps listed below: Data Collection & Preprocessing, Data Exploration & Analysis, Hierarchical Clustering and Count Data Regression Modeling. The nature of each is described below:
+Our methodology for answering these questions follows the steps listed below: Data Collection & Preprocessing, Data Exploration & Analysis, Hierarchical Clustering, and Count Data Regression Modeling. The nature of each is described below:
 
 **Data Collection & Preprocessing:** The data collection followed two separate paths from Citi Bike operators. First, the trip data for three months was downloaded and used to create a timetable for the surplus or shortage of every docking station. Second, the bike availability for every docking station was retrieved from an API based on a running script to construct a timetable of bikes available every 15 minutes across a two-week period.
 
-**Data Exploration & Analysis:** The bike trip data was used to understand the pattern of Citi Bike usage across New York City and comprehend the patterns across days of the week and dependent on time of day. The analysis of bike trips uncovered the system rebalancing but could not be accurately identify the daily updates thus forcing the reliance on the two weeks of availability data. The exploration also identified the overwhelming number of docking stations across the NYC system thus placing constraints on the proposed prediction model.
+**Data Exploration & Analysis:** The bike trip data was used to understand the pattern of Citi Bike usage across New York City and comprehend the patterns across days of the week and dependent on time of day. The analysis of bike trips uncovered the system rebalancing but could not be accurately identify the daily updates thus motivating the reliance on the two weeks of availability data. The exploration also identified the overwhelming number of docking stations across the NYC system thus placing constraints on the proposed prediction model.
 
 **Hierarchical Clustering:** To fulfill the goal of a prediction model based on location, clustering was performed on the docking stations of Brooklyn in order to decrease the size of the model and also provide a better real-world approach to end-user bike availability.
 
-**Count Data Regression Modeling:** Identification and evaluation of count data regression models. We constructed several predictive models for count data to identify the most accurate model. The best model for bike availability prediction was selected based on RMSE, MAE, and zero count error rate. The count data regression models were evaluated based on the train-test split approach. The model performances were assessed based on the training and test model metrics.
+**Count Data Regression Modeling:** For identification and evaluation of count data regression models, we constructed several predictive models for count data to identify the most accurate model. The best model for bike availability prediction was selected based on RMSE, MAE, MASE, and zero count error rate. The count data regression models were evaluated based on a train-test data split approach.
 
-Based on the selected count data regression model, a function was written to provide true bike availability predictions.
+Based on the selected count data regression model of clustered docking stations, a working proof of concept was created to provide true bike availability predictions for location, day, and time.
 
 ---
 
@@ -189,9 +173,9 @@ library(cowplot)
 
 ```
 
-This project relies on two primary data sources from Citi Bike NYC. The first dataset, the complete set of bike trips for the three months spanning August-October 2022 is used to identify the patterns of bike use across New York City. The second dataset, an aggregation of docking station status for every 15 minutes for the two-week period of Monday, Oct. 31, 2022 through Sunday, Nov. 13, 2022. The station status API provides real-time bike availability count of every docking station in the Citi Bike system. This two-week dataset provides an accurate depiction of the available bikes, specifically accounting for operational rebalancing.
+This project relies on two primary data sources from Citi Bike. The first dataset, the complete set of bike trips for the three months spanning August-October 2022 is used to identify the patterns of bike use across New York City. The second dataset, an aggregation of each docking station status every 15 minutes for the two-week period of Monday, Oct. 31, 2022 through Sunday, Nov. 13, 2022. The station status API provides the real-time bike availability count of every docking station in the Citi Bike system. This two-week dataset provides an accurate depiction of the available bikes, intentionally accounting for operational rebalancing.
 
-Citi Bike provides individual bike trip data on a monthly basis available at https://ride.citibikenyc.com/system-data. This project uses three months of bike trip data from August through October 2022 for New York City. The dataset contains 13 variables for each bike trip originating at a NYC-based docking station. A note on the system data page indicates trips taken by staff to service or inspect the system have been removed from the dataset. Also, any trips below 60 seconds have also been omitted. With this preprocessing by the data maintainers, the remaining trips are considered to be valid bike trips.
+Citi Bike provides individual bike trip data on a monthly basis available at https://ride.citibikenyc.com/system-data. This project uses three months of NYC-scoped bike trip data from August through October 2022. A note on the system data webpage indicates trips taken by staff to service or inspect the system have been removed from the dataset. Also, any trips below 60 seconds have also been omitted. With this pruning by the system maintainers, the remaining trips are considered to be valid bike trips. The dataset contains 13 variables for each bike trip originating at a NYC-based docking station.
 
 ```{r read.trip.data, echo=T, message=F, warning=F, include=F, eval=T, cache=TRUE}
 # Create additional columns of pertinence
@@ -231,7 +215,7 @@ head(citibike)
 
 \begin{myitemize}
     \item \textbf{ride.id:} Unique identifier of the bike trip
-    \item \textbf{rideable.type:} Factor variable - classic, electric, and docked
+    \item \textbf{rideable.type:} Factor variable -- classic, electric, and docked
     \item \textbf{started.at:} Timestamp of trip departure
     \item \textbf{ended.at:} Timestamp of trip arrival
     \item \textbf{start.station.name:} Name of departure docking station
@@ -242,7 +226,7 @@ head(citibike)
     \item \textbf{start.lng:} Longitude of departure location
     \item \textbf{end.lat:} Latitude of arrival location
     \item \textbf{end.lng:} Longitude of arrival location
-    \item \textbf{member.casual:} Factor variable for user type - member or casual
+    \item \textbf{member.casual:} Factor variable for user type -- member or casual
 \end{myitemize}
 
 Based on the `started.at` and `ended.at` variables, four variables are derived for each bike trip.
@@ -273,42 +257,42 @@ The station information API, also available from Citi Bike, provided the followi
     \item \textbf{capacity:} Capacity of the docking station
 \end{myitemize}
 
-The NYC Open Data (free public data published by New York City agencies and partners) provides a GeoJSON file for the polygons defining each neighborhood in NYC according to the 2010 Neighborhood Tabulation Areas (NTAs). Each NTA is associated with one of the five NYC boroughs. (https://data.cityofnewyork.us/City-Government/2010-Neighborhood-Tabulation-Areas-NTAs-/cpf4-rkhq)
+The NYC Open Data (free public data published by New York City agencies and partners) provides a GeoJSON file for the polygons defining each neighborhood in NYC according to the 2010 Neighborhood Tabulation Areas (NTAs). Each NTA is associated with one of the five NYC boroughs.
 
 The elevation of each Citi Bike docking station is determined using the R library `elevatr` based on the latitude and longitude of each station. The elevation is defined in meters above sea level.
 
 \begin{myitemize}
     \item \textbf{elevation:} Units above sea level
-    \item \textbf{elev.units:} Unit of measurement for elevation
+    \item \textbf{elev.units:} Unit of measurement for elevation -- meters
 \end{myitemize}
 
 ### Challenges
 
-We faced three primary challenges during this research project. First, the large volume of data proved overwhelming for a system processing specifications. Given the count of over 10 million trips and over 1700 docking stations in NYC the large data provided a base for several interesting data visualizations but pushed our computing powers to their system constraints and ultimately was the reason for focusing the prediction model on the borough of Brooklyn instead of the entirety of NYC.
+We faced three primary challenges during this research project. First, the large volume of data proved overwhelming for the computing processors used. Given the count of over 10 million trips and over 1,700 docking stations in NYC, the large data provided a base for several interesting data visualizations but pushed our computing powers to their system limits. The computing power limits ultimately informed the decision to focus the prediction model on the borough of Brooklyn instead of the entirety of NYC.
 
-The second challenge was the ability for account for system rebalancing performed by the Citi Bike staff. Rebalancing is the movement of bikes by the system operators, which are not accounted for the three months of bike share data. For each of the three months, the Citi Bike staff rebalanced over 78,000 bikes which equates to an average of over 2,000 rebalanced bikes per day. This inability to comprehensively identify rebalanced bikes was the motivation to call the API for accurate availability information.
+The second challenge to overcome was the inability to account for system rebalancing performed by the Citi Bike staff. Rebalancing is the movement of bikes by the system operators. These bike movements are not accounted for in the publicly available three months of bike trip data. For each of the three months, the Citi Bike staff rebalanced over 70,000 bikes which equates to an average of over 2,000 rebalanced bikes per day. This inability to comprehensively identify rebalanced bikes was the motivation to retrieve accurate availability information through the API.
 
-The final challenge was self-induced and a driver for the few independent variables used for the prediction model. We wanted to build a user-friendly model to predict bike availability. We envisioned a website or app requiring just a few inputs from a user to then provide the model prediction. This constraint forced us to limit the model inputs to information likely available to a given user.
+The final challenge addressed was self-induced and the primary factor for the few independent variables used as input into the prediction model. We wanted to build a user-friendly model to predict bike availability. We envisioned a website or app requiring just a few inputs from a user to then provide the model prediction. This constraint forced us to limit the model inputs to information available to a given user.
 
 ### Data Preprocessing
 
-Upon initial inspection of the 10,210,102 bike trips in August through October 2022, a total of 24,887 entries did not contain an `end.station.id` and `end.station.name` listed. These 24,887 without a defined destination docking station will be defined as 'Abandoned,' meaning the user did not properly dock the bike. For this purpose, the `end.lat` and `end.lng` will be removed as the abandoned bikes temporarily remove a bike from the bikeshare system. Another rider cannot rent an abandoned bike until the bike is properly docked. As a note, Citi Bike does charge a fine for bikes not properly returned to a docking station.
+Upon initial inspection of the 10,210,102 bike trips in August through October 2022, a total of 24,887 entries did not contain an `end.station.id` and `end.station.name` listed. These 24,887 without a defined destination docking station will be defined as "Abandoned," meaning the user did not properly dock the bike. For this purpose, the `end.lat` and `end.lng` will be removed as the abandoned bikes temporarily remove a bike from the bikeshare system. Another rider cannot rent an abandoned bike until the bike is properly docked. As a note, Citi Bike does charge a fine for bikes not properly returned to a docking station.
 
 Evaluation of the `end.station.id` for the NYC based bike trips includes docking stations located in New Jersey. The Citi Bike bikeshare system does include docking stations in Jersey City and Hoboken. A number of bike trips end in New Jersey which does remove the bike from the NYC-based docking stations of which this research is focused.
 
 #### Surplus Calculation
 
-The individual bike trip information was sorted by timestamp and grouped by docking station for each 15-minute interval across the three months to count the number of bikes departing and the number bikes arriving per interval. By subtracting the number of departures from the number of arrivals for each station for each interval, we are able to determine the running increase or decrease of bikes at the docking station. This total is defined as the variable `surplus`. A summation of the `surplus` for each docking station is calculated over the course of the three months to determine which docking stations are more likely departure stations or arrival stations.
+The individual bike trip information was sorted by timestamp and grouped by docking station for each 15-minute interval across the three months to count the number of bikes departing and the number bikes arriving per interval. By subtracting the number of departures from the number of arrivals for each station for each interval, we are able to determine the increase or decrease of bikes at the docking station. This total is defined as the variable `surplus`. A summation of the `surplus` for each docking station is calculated over the course of the three months to determine which docking stations are more likely departure stations or arrival stations.
 
 #### Availability 
 
-To prepare the bike availability counts by docking station, we constructed a data table of the 1,344 API request made every 15 minutes over the course of the two weeks, and summing the available classic bikes with electronic bikes and then joining by `station.id` with the station information dataset to align the docking station capacity with the availability numbers. The API reported several docking stations with more available bikes than capacity of the docking station. In these instances, the availability was decreased to match the total capacity of the docking station.
+To prepare the bike availability counts by docking station, we constructed a data table of the 1,344 API request made every 15 minutes over the course of the two weeks. The sum of the available classic bikes with electronic bikes defines the bike availability count for each docking station at the time of the API request. The data table was joined by `station.id` with the station information dataset to align the docking station capacity with the availability numbers and also identify the borough and neighborhood for each station. The API reported several docking stations with more available bikes than capacity of the docking station. In these instances, the availability was decreased to match the total capacity of the docking station.
 
 ---
 
 ## Data Exploration & Analysis
 
-Exploratory data analysis is performed on the Citi Bike trips for August through October 2022 to evaluate the patterns of bike use and identify docking stations with a surplus or a shortage. First, the count of bike trips are assessed to find the high volume days of the week and time of day. Next, the duration of bike trips are evaluated to assess when bikes are individually likely to be unavailable longer. Finally, the surplus of bikes by docking station and borough are analyzed to determine which areas of the New York City are more prone to having lower bike availability.
+We perform exploratory data analysis on the Citi Bike trips for August through October 2022 to evaluate the patterns of bike use and identify docking stations with a surplus or a shortage. First, the count of bike trips are assessed to find the high volume days of the week and time of day. Next, the duration of bike trips are evaluated to assess when bikes are individually likely to be unavailable longer. Finally, the surplus of bikes by docking station and borough are analyzed to determine which areas of the New York City are more prone to having lower bike availability.
 
 For understanding the ridership patterns of the Citi Bike system, the following statistics outline the breadth of the bike trip information assessed.
 
@@ -322,9 +306,9 @@ For understanding the ridership patterns of the Citi Bike system, the following 
 
 ### Count of Bike Trips
 
-The count of bike trips are separated by user type -- member and casual. With the separation by user type, two distinct patterns emerge of bike use over the course of the day and over the course of a week. The member trips are more likely to follow the workday pattern of spikes in the morning and evening as individuals are traveling to or from work. The casual users show a pattern not necessarily indicative of the workday but instead of tourist or recreational use. The member trips account for an overall higher volume of trips.
+The count of bike trips are separated by user type -- member and casual. With the separation by user type, two distinct patterns emerge of bike use over the course of the day and over the course of a week. The member trips are more likely to follow the workday pattern of spikes in the morning and evening as individuals are traveling to or from work. The casual users show a pattern not necessarily indicative of the workday but instead of tourism or recreational use. The member trips account for an overall higher volume of trips.
 
-The member user counts show rush-hour spikes on weekdays whereas casual users do show higher counts around 5pm and 6pm on weekdays. The comparison of the two user groups also points to greater usage overall by members For everyday of the week, the average member counts per hour are greater than the casual users. On weekend days, both user groups show a pattern indicative of recreational use with a plateau use during the middle of the day and without distinct spikes found on the weekdays. Also, the higher usage of by member users throughout the middle of the day may indicate even if someone is a member the primary reason may not be transportation to and from work.
+As seen in the visual "Median Number of Bike Trips," the member user counts show rush-hour spikes on weekdays whereas casual users do show higher counts around 5pm and 6pm on weekdays. The comparison of the two user groups also points to greater usage overall by members. For every day of the week, the average member counts per hour are greater than the casual users. On weekend days, both user groups show a pattern indicative of recreational use with a plateau of use during the middle of the day and without the distinct peaks found on the weekdays. Also, the higher usage of by member users throughout the middle of the day may indicate even if someone is a member the primary reason may not be transportation to and from work.
 
 ```{r trips.by.time.by.day.by.user, echo=F, message=F, warning=F, include=T, fig.height=9, cache=T}
 # Trip by weekday by segment by time of day
@@ -375,9 +359,9 @@ citibike_by_hour_ts %>%
   theme(legend.position="none")
 ```
 
-The time-series chart 'Ride Trips by Hour' confirms the higher usage by members with a clear pattern of weekday volumes corresponding to transportation for work purposes. The casual users follow a daily pattern with increases toward the end of the week - Thursday through Saturday. The evening spike of casual users may indicate some casual individuals returning home from work or potentially tourists returning bikes in the early evening before a night out in the city. Poor weather conditions can directly impact the ridership on a given day as exemplified on the days with lower than expected member and casual user counts. A thunderstorm on Sept. 6 and rain throughout early October contributed to the lower bike trip volumes visible in the plot.
+The time-series chart "Ride Trips by Hour" confirms the higher usage by members with a clear pattern of weekday volumes corresponding to transportation for work purposes. The casual users follow a daily pattern with increases toward the end of the week --- Thursday through Saturday. The evening spike of casual users may indicate some casual individuals returning home from work or potentially tourists returning bikes in the early evening before a night out in the city. Poor weather conditions can directly impact the ridership on a given day as exemplified on the days with lower than expected member and casual counts. A thunderstorm on Sept. 6 and rain throughout early October contributed to the lower bike trip volumes visible in the chart.
 
-The weekly seasonal plot 'Seasonal plot: Weekly Trip Counts' denotes the same pattern week over week. Based on the plot, the bike trips show consistency every week based on member users utilizing the bikes for work and casual users renting the bikes for recreational purposes.
+The weekly seasonal plot "Seasonal plot: Weekly Trip Counts" denotes the same pattern week over week. Based on the plot, the bike trips show consistency every week based on members utilizing the bikes for work and casual users renting the bikes for recreational purposes.
 
 ### Duration of Bike Trips
 
@@ -402,13 +386,13 @@ citibike %>%
   scale_x_discrete(breaks=c(0,6,12,18))
 ```
 
-The chart of average trip duration by user type shows a clear distinction between the user types. Member users tend to average bike trips of 10 minutes or less throughout the week, whereas the casual users have a greater variance in average duration based on time of day and day of the week. The member users only average trips greater than 10 minutes during the afternoon and evening on Saturday while casual users typically average even longer trips of greater than 17 minutes on the weekend. Casual users tend to reach of a peak of greater than 15 minutes on average everyday of the week, particularly around lunch on weekdays.
+The chart "Median Trip Duration by User and Day" shows a clear distinction between the user types. Member users tend to average bike trips of 10 minutes or less throughout the week, whereas the casual users have a greater variance in average duration based on time of day and day of the week. The member users only average trips greater than 10 minutes during the afternoon and evening on Saturday while casual users typically average even longer trips of greater than 17 minutes on the weekend. Casual users tend to reach a peak of greater than 15 minutes on average every day of the week, particularly around lunch on weekdays.
 
 We observe that member users tend to have longer average trips during the morning and evening rush hours on weekdays with a slight deviation on Friday evening as the weekend starts. The afternoon and evening hours of Saturday and Sunday show longer trips for members as likely the result of recreational trips.
 
 ### Docking Station Surplus
 
-After constructing a matrix of bike arrivals and departures for each NYC-based docking station for every 15-minute interval of August through October 2022, we calculate the overall surplus or shortage of bikes of each docking station. The researchers note, the shortage of bikes can logically not fall below zero without the introduction of rebalancing throughout the bikeshare system. The following analysis confirms the rebalancing of bikes across the docking stations occurs to ensure popular departure docking stations have bikes available despite the dearth of bike trip arrivals.
+After constructing a matrix of bike arrivals and departures for each NYC-based docking station for every 15-minute interval of August through October 2022, we calculate the overall surplus or shortage of bikes for each docking station. One caveat to note, the shortage of bikes can logically not fall below zero without the introduction of rebalancing throughout the bikeshare system. The following analysis confirms the rebalancing of bikes across the docking stations occurs to ensure popular departure docking stations have bikes available despite the dearth of bike trip arrivals.
 
 ```{r calculate.surplus, echo=F, message=F, warning=F, include=F, cache=T}
 # Create table of start to end station IDs
@@ -513,11 +497,31 @@ mtext(side = 3, line=-3, adj=0, p_subtitle)
 rasterImage(img,-1,0,12,10)
 ```
 
-The plot of docking stations across the New York City maps the location of every docking station along with a color to indicate a net positive, net negative or even amount of bikes for the given month. The blue stations are net positive, and red stations indicate net negative while green stations are even for the entire month. Of the 1,716 docking stations represented, 910 ended with a surplus, 771 with a shortage, and 35 with an even count.
+The plot of docking stations across New York City maps the location of every docking station along with a color to indicate a net positive, net negative or even amount of bikes for the given month. The blue stations are net positive, and red stations indicate net negative while green stations are even for the entire month. Of the 1,716 docking stations represented, 910 ended with a surplus, 771 with a shortage, and 35 with an even count. The map clearly shows broad sections of the city, primarily in Manhattan with the neighborhoods around Central Park with an overall shortage of bikes by docking stations. The southern end of Manhattan along with the northern end and into the Bronx indicate surpluses at docking stations. To the east of the East River in Brooklyn and Queens, the surplus of bikes appears along the river with shortages further away from the river. In Brooklyn and Queens, surpluses occur in the more commercial and entertainment-friendly neighborhoods while the more outlying areas reveal the departure of bikes.
+
+### Docking Station Surplus: Weekday Pattern
+
+To better understand the daily flow of bikes, the average arrivals and departures across Wednesdays of the three-month period per docking station are plotted below by identified hour of the day in the plot "Weekday Pattern: Average Wednesday." The selection of Wednesday, the day of highest use, provides an clear representation of weekday activity. 
+
+\begin{figure}[H]
+  \centering
+  \textbf{Weekday Pattern: Average Wednesday}\par\medskip
+  \subfloat[5 a.m.]{\includegraphics[width=0.3\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_5A.jpg}}\hfil
+  \subfloat[8 a.m.]{\includegraphics[width=0.3\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_8A.jpg}}\hfil
+  \subfloat[11 a.m.]{\includegraphics[width=0.3\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_11A.jpg}}
+  
+  \subfloat[2 p.m.]{\includegraphics[width=0.3\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_2P.jpg}}\hfil
+  \subfloat[5 p.m.]{\includegraphics[width=0.3\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_5P.jpg}}\hfil
+  \subfloat[8 p.m.]{\includegraphics[width=0.3\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_8P.jpg}}
+\end{figure}
+
+**Manhattan:** Starting at 5 a.m., most docking stations are colored green, indicating little movement of bikes at such an early hour. At 8 a.m., the docking stations in Midtown and the Financial District in Manhattan, two concentrated areas of commercial offices, are primarily blue as individuals arrive for work. Also at 8 a.m., red docking stations populate the more residential areas of the upper West Side and the East Village. At 11 a.m., most docking stations are green across the city as the morning rush has subsided. Later at 2 p.m., the plot remains similar to 11 a.m. as the lunch movement has subsided and before evening rush our. Then at 5 p.m., the inverse of the 8 a.m. map appears. Now, Midtown and the Financial District areas are red representing the departures of workers from the commercial centers. Also at 5 p.m., blue docking stations color the Upper West Side and East Village as individuals return home from work. Finally during the 8 p.m. hour, the pattern remains similar to the 5 p.m. plot as bike movement continues away from commercial areas toward residential areas with an increasing number of green docking stations throughout the city.
+
+**Brooklyn and Queens:** In less dramatic fashion as Manhattan, the 8 a.m. panel shows movement from the outlying areas in read toward the East River and subway station locations in blue. The evening panels at 5 p.m. and 8 p.m. capture the inverse of the morning movement with more blue docking stations in the outlying areas as bikes create an surplus in the residential areas.
 
 ### Surplus by Borough
 
-With almost an even number of docking stations with a net shortage and a net surplus, we evaluate the shortage and surplus by borough.
+Given the visible distinctions on the map of where bike surpluses and shortages occur across New York City, we evaluate the shortage and surplus by borough to understand bike availability at a more granular level.
 
 ```{r surplus.by.boro, echo=F, message=F, warning=F, include=T}
 stations_with_elevation <- read.csv('stations_with_elevation.csv', row.names = 1, header= TRUE)
@@ -577,44 +581,7 @@ stations_attrs_trim_sur %>%
   theme(legend.position="none")
 ```
 
-The plot denotes a near normal distribution for the four boroughs included in the dataset --- the Bronx, Brooklyn, Manhattan, and Queens. The balanced distribution across the four NYC boroughs likely demonstrates the bike trips are contained within a borough. With average duration less than 10 minutes for member users and less than 20 minutes for casual users, the distance traveled for all bike trips is likely less than three miles. The 30-minute base rental rate dictates a limited travel distance which inhibits users from traveling across boroughs via the bikeshare system.
-
-### Docking Station Surplus: Weekday Pattern
-
-To better understand the daily flow of bikes, the average arrivals and departures on Wednesdays of the three-month period per docking station are plotted below by hour of the day. The selection of Wednesday, the day of highest use, provides an accurate representation of weekday activity. Starting at 5 a.m., most docking stations are colored green, likely indicating little movement of bikes at such an early hour. At 8 a.m., the docking stations in Midtown and the Financial District, two concentrated are of commercial offices. are primarily blue as individuals make their way to work. Also at 8 a.m., red docking stations populate the more residential areas of the upper West Side and the East Village. At 11 a.m., most docking stations are green across the city as the morning rush has subsided. Later at 2 p.m., the plot remains similar to 11 a.m. as the lunch movement has subsided and before evening rush our. Then at 5 p.m., the inverse of the 8 a.m. map appears. Now, Midtown and the Financial District areas are red representing the departures of workers from the commercial centers. Also at 5 p.m., blue docking stations color the Upper West Side and East Village as individuals return home from work. Finally during the 8 p.m. hour, the patterns remains similar to the 5 p.m. plot as bike movement continues away from commercial areas toward residential areas with an increasing number of green docking stations throughout the city.
-
-\begin{figure}
-  \centering
-  \textbf{Weekday Pattern: Average Wednesday}\par\medskip
-  \subfloat[5 a.m.]{\includegraphics[width=0.49\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_5A.jpg}}\hfil
-  \subfloat[8 a.m.]{\includegraphics[width=0.49\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_8A.jpg}}
-  
-  \subfloat[11 a.m.]{\includegraphics[width=0.49\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_11A.jpg}}\hfil  
-  \subfloat[2 p.m.]{\includegraphics[width=0.49\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_2P.jpg}}
-  
-  \subfloat[5 p.m.]{\includegraphics[width=0.49\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_5P.jpg}}\hfil
-  \subfloat[8 p.m.]{\includegraphics[width=0.49\textwidth, height=\textheight, keepaspectratio]{cb_stations_surplus_8P.jpg}}
-\end{figure}
-
-```{r build.graph.object, echo=F, message=F, warning=F, include=T, eval=F}
-# EVAL IS FALSE ... CONSIDER REMOVING!!!
-# This removed the duplicate rows by transposing the start and end station ids
-stations_table_dif_merge_temp <- stations_table_dif_merge %>% select(start.station.id, end.station.id)
-
-
-stations_for_graph <- stations_table_dif_merge_temp[!duplicated(lapply(as.data.frame(t(stations_table_dif_merge_temp), stringsAsFactors=FALSE), sort)),]
-
-g_stations <- graph_from_data_frame(stations_for_graph, directed=FALSE, vertices=station_surplus_count_coords)
-
-edges_for_plot <- stations_for_graph %>%
-  inner_join(station_surplus_count_coords %>% select(station.id, lng, lat), by=c('start.station.id' = 'station.id')) %>%
-  rename(x=lng, y=lat) %>%
-  inner_join(station_surplus_count_coords %>% select(station.id, lng, lat), by=c('end.station.id' = 'station.id')) %>%
-  rename(xend=lng, yend=lat)
-
-#assert_that(nrow(edges_for_plot) == nrow(stations_for_graph))
-
-```
+The plot "Station Surplus by Borough Histogram" denotes a near normal distribution for the four boroughs included in the dataset --- the Bronx, Brooklyn, Manhattan, and Queens. The balanced distribution across the four NYC boroughs likely demonstrates that bike trips are contained within a borough. With average duration less than 10 minutes for member users and less than 20 minutes for casual users, the distance traveled for all bike trips is likely less than three miles. The 30-minute base rental rate dictates a limited travel distance inhibiting users from traveling across boroughs via the bikeshare system.
 
 ```{r display.station.reblance, echo=F, message=F, warning=F, include=T, fig.height=5}
 citibike_bike_avail <- fread("bike_avail_by_station_and_time.csv", data.table=FALSE, check.names=FALSE)
@@ -626,18 +593,23 @@ citibike_bike_avail_long <- citibike_bike_avail %>%
   pivot_longer(!timestamp, names_to = "station.id", values_to = "bikes.avail")
 ```
 
+### Zero Bike Availability
+
+The map plot shows the docking stations with frequency of zero bike availability in Brooklyn. Most docking stations have a lower frequency of 50 or less occurrences across the 1,344 15-minute intervals of the two week period. We do notice a number of red stations indicating high frequency of zero available bikes. These stations could be considered for greater rebalancing.
+
+\begin{figure}[H]
+  \centering
+  \textbf{Zero Availability by Docking Station}\par\medskip
+  \includegraphics[width=0.7\textwidth, keepaspectratio,trim={5cm 4cm 0cm 0cm},clip]{bk_stations_zero_avail.jpg}
+\end{figure}
+
 ### Rebalancing Example
-
-According to the Citi Bike operating report for September 2022 (latest available), the Citi Bike staff rebalanced a total of 70,117 bikes. The operating report also denotes 1,625 active stations at the end of the month. The report also calculates an average bike fleet in September as 24,514.0 with 24,327 bikes in the fleet on the last day of the month. Given the total number of rebalanced bike of 70,117 for the month and an average of 24,514 bikes available per day, then almost 10% of bikes are rebalanced daily.
-
-The line chart depicts the number of available bikes every 1 hour for docking station 3582 in Crown Heights Brooklyn. The chart clearly shows six spikes to 15 or more available bikes occur within the two week span. These sudden increases, or examples of rebalancing, are inconsistent and always return to under 10 available bikes. This chart indicates the departure usage is driven by the available bikes but the arriving bikes remains low during this time span. Given the common yet inconsistent occurrences of rebalancing, we decided to not impute the instances of rebalancing, but instead keep the data as accurate in an attempt at a more valuable model.
-
 
 ```{r plot.station.3582.avail, echo=F, message=F, warning=F, include=T}
 
 citibike_bike_avail_long_trim <- citibike_bike_avail_long %>%
-  filter(as.integer(station.id) == 3582 & endsWith(as.character(timestamp), "00:00"))
-#filter(as.integer(station.id) == 3582)
+#  filter(as.integer(station.id) == 3582 & endsWith(as.character(timestamp), "00:00"))
+filter(as.integer(station.id) == 3582)
 
 p_rebalance_station <- ggplot(citibike_bike_avail_long_trim, 
                               aes(x=timestamp, y=bikes.avail, group=station.id)) + 
@@ -649,16 +621,9 @@ p_rebalance_station <- ggplot(citibike_bike_avail_long_trim,
 
 p_rebalance_station
 ```
+According to the Citi Bike operating report for September 2022 (latest available as of report submission), the Citi Bike staff rebalanced a total of 70,117 bikes during the month. The operating report calculates an average bike fleet in September as 24,514.0 with 24,327 bikes in the fleet on the last day of the month. Given the total number of rebalanced bike over 70,000 for the month and an average of 24,514 bikes available per day, then almost 10% of bikes are rebalanced daily. As seen in the maps of surplus and shortage by docking station, an even distribution of bikes does not occur and must be addressed by the operators to ensure daily bike availability.
 
-### Zero Bike Availability
-
-he map plot shows the docking stations with frequency of zero bike availability. Most docking stations have a lower frequency of 50 or less occurrences across the 1,344 15-minute intervals of the two week period. We do notice a number of red stations indicating high frequency of zero available bikes. These stations could be considered for greater rebalancing. This plot supports the need to consider the zero-inflated model for our purposes of prediction.
-
-\begin{figure}
-  \centering
-  \textbf{Zero Availability by Docking Station}\par\medskip
-  \includegraphics[width=0.7\textwidth, keepaspectratio,trim={5cm 4cm 0cm 0cm},clip]{bk_stations_zero_avail.jpg}
-\end{figure}
+The line chart "Docking Station 3582" depicts the number of available bikes every 15 minutes for docking station 3582 in Crown Heights Brooklyn. The chart clearly shows four spikes to 20 or more available bikes occurring within the two-week span of Oct. 31 to Nov. 13. These sudden increases, examples of rebalancing, are inconsistent and always return to under 10 available bikes. This chart indicates the departure usage is driven by the available bikes but the arrival of bikes remains low during this time span. The term for greater availability driving higher usage is called induced demand.
 
 ---
 
@@ -672,7 +637,7 @@ With over 1,700 stations and a walking distance of 400 meters (or one quarter of
     \item \textbf{Clusters:} 213 (2.23 stations/cluster)
 \end{myitemize}
 
-\begin{figure}
+\begin{figure}[H]
   \centering
   \textbf{Docking Stations Colored by Cluster}\par\medskip
   \includegraphics[width=0.7\textwidth, keepaspectratio,trim={6cm 4cm 6cm 4cm},clip]{bk_stations_by_cluster.jpg}
@@ -680,7 +645,9 @@ With over 1,700 stations and a walking distance of 400 meters (or one quarter of
 
 ### Bike Availability by Cluster
 
-The histogram shows the frequency of bike availability counts across all the Brooklyn clusters for each 1-hour interval for the two-week timespan. The value of zero is the most frequent value followed by two. A plateau is visible starting around 25 which marks a station capacity. A similar plateau also occurs around 60, close to double the single station capacity which would be expected given most clusters are two docking stations. The plot confirms the likelihood of zero bike availability.
+The histogram shows the frequency of bike availability counts across all the Brooklyn clusters for each one-hour interval for the two-week timespan. The value of zero is the most frequent value followed by two. A plateau is visible around 25 which marks a station capacity. A similar plateau also occurs around 60, close to double the single station capacity which would be expected given most clusters are two docking stations. The plot confirms the likelihood of zero bike availability.
+
+The prediction model ultimately based the independent variable time on the hour of the day, hence the transition from 15-minute intervals to one-hour intervals in the research.
 
 ```{r display.bk.freqOfZero.by.cluster, echo=F, message=F, warning=F, include=T, fig.height=4, cache=T}
 # Read in the csv of the API responses which have been wrangled together
@@ -810,18 +777,18 @@ p_distro_avail_counts
 
 ## Count Data Regression Modeling
 
-As for the model algorithms, as mentioned earlier we selected the Generalized Linear Model based on Poisson, Quasi-Poisson, Negative Binomial and Zero-inflated. The availability data meets most of the Poisson regression criteria. Response variable is a count per unit. The observations are independent. Unfortunately, the variance is greater than the mean, which indicates we have overdispersion in the data. Thus the reason we selected Negative Binomial and Quasi-Poisson as base algorithms in addition to Poisson.
+As for the regression modeling, we selected the Generalized Linear Models based on Poisson, Quasi-Poisson, Negative Binomial and Zero-Inflated algorithms. The availability data meets most of the Poisson regression criteria. Response variable is a count per unit. The observations are independent. Unfortunately, the variance is greater than the mean, which indicates overdispersion in the data. The mean of the bikes available by cluster is 36.34474 and the population variance over the dataset is 908.1704 indicating overdispersion exists. Due to overdispersion, we selected Negative Binomial and Quasi-Poisson as base algorithms in addition to Poisson. The Zero-Inflated algorithm was chosen based on the previous observation in which zero bike availability is the most common value across all the docking-station clusters.
 
-For evaluating the models, the two full weeks of data spanning Oct. 31 through Nov. 13 are partitioned into a training set of 75% and a test set of 25%. The dataset follows a time series pattern but in order to predict a specific day and time of the week agnostic of date, regression models for count data are used. The range of regression models for count data considered are Poisson, Quasi-Poisson, Negative Binomial, and Zero-Inflated.
+For evaluating the models, the two full weeks of bike availability data spanning Oct. 31 through Nov. 13 are partitioned into a training set of 75% and a test set of 25%. Given the common, yet inconsistent occurrences of rebalancing identified previously, we decided to not impute the instances of rebalancing, but instead keep the data accurate in an attempt at a more valuable model. The dataset follows a time series pattern but in order to predict a specific day and time of the week agnostic of date, regression models for count data are used. 
 
-Inputs to the models are cluster identifier, day of the week, and time of day. The model inputs would represent a map-based application in which a user selects a point on the map along with day and time to receive an estimation of the bikes available at that future date and time. Based on the user-provided longitude and latitude, a nearest neighbor search is performed to identify the nearest docking station. The translation of the longitude and latitude to the corresponding cluster of the nearest-neighbor docking station would be the input to the model.
+The model inputs represent a map-based application in which a user selects a point on a map along with the type of day and time to receive an estimation of the bikes available at that future date, time, and location. Based on the user-provided longitude and latitude, a nearest neighbor search is performed to identify the nearest docking station. The translation of the longitude and latitude to the corresponding cluster of the nearest-neighbor docking station would be the input to the model. The categorical variable type of day, weekday or weekend, was chosen due to the differing usage patterns on weekdays and weekends. Within each category, weekday and weekend, the similarities allowed us to simplify the model to just two values. The time of day is converted to the start of the hour. Models were constructed using the 15-minute intervals, due to computing system constraints the time interval of one hour was selected. The dependent variable is the count of available bikes with the floor function applied to ensure a whole number prediction.
 
-\begin{myitemize}
-    \item Latitude and longitude converted to cluster
-    \item Day of the Week converted to 'Weekday' or 'Weekend'
-    \item Time of Day in 1-hour intervals
-\end{myitemize}
-
+* Independent variables
+    + Cluster identifier converted from longitude and latitude (categorical) 
+    + Type of day: "Weekday" or "Weekend" (categorical)
+    + Time of Day in 1-hour intervals (categorical)
+* Dependent variable
+    + Available number of bikes (integer)
 
 ```{r impute.avail.to.capacity, eval=T, echo=F, message=F, warning=F, include=F}
 stations_bike_avail_by_time_1H_imp <- stations_bike_avail_by_time_1H
@@ -860,11 +827,9 @@ n <- length(stations_bike_avail_by_time_1H_imp)
 # Over dispersion exists
 ```
 
-The mean of the bikes available by cluster is 36.34474 and the population variance over the dataset is 908.1704 indicating overdispersion exists.
-
 ### Generalized Linear Models for Count Data
 
-Now, for the heart of the prediction model, we apply 5 distinct models to the availability counts by cluster. First, we use Poisson from the `stats` library followed by Quasi-Poisson, also from the `stats` library. Then we attempt Negative Binomial from the `MASS` library and finally, Zero-inflated, once with Poisson and once with Negative Binomial, relying on the `pscl` library. We trained on a sample of 75% of the data and tested on the remaining 25% of the data.
+Now, for the heart of the prediction model, we apply 5 distinct models to the availability counts by cluster. First, we use Poisson from the `stats` library followed by Quasi-Poisson, also from the `stats` library. Then we attempt Negative Binomial from the `MASS` library and finally, Zero-inflated, once with Poisson and once with Negative Binomial, relying on the `pscl` library. We trained on the 75% sample, 53,853 instances, and tested on the remaining 25% of the data, 17,715 instances
 
 **Poisson Model:** The Poisson model is a generalized linear model for count data with the assumption that the variance is equal to the mean. Despite the indication of overdispersion due to the much greater variance than mean, we attempt the Poisson model first.
 
@@ -901,9 +866,9 @@ disp_test <- dispersiontest(mod_1H_pois)
 disp_val <- as.numeric(disp_test$estimate[1])
 ```
 
-The `dispersiontest` function from the `AER` library indicates a dispersion of `r disp_val`.
+The `dispersiontest` function from the `AER` library indicates a dispersion of `r disp_val` in the Poisson model. A value over 1 confirms overdispersion.
 
-**Quasi-Poisson Model:** The Quasi-Poisson Model is a generalized linear model to model count data, for overdispersed count variable in which the variance is a linear function of the mean.
+**Quasi-Poisson Model:** The Quasi-Poisson Model is a generalized linear model for count data to address an overdispersed count variable in which the variance is a linear function of the mean.
 
 ```{r model.qpois.1H.intervals, eval=T, echo=F, message=F, warning=F, include=T, cache=TRUE}
 # QUASI-POISSON
@@ -959,7 +924,7 @@ p_resid_nb <- ggplot(mod_1H_nb, aes(x = .fitted, y = .resid)) +
 p_resid_nb <- p_resid_nb +  xlim(-5, 10)
 ```
 
-Due to the high number of clusters and hourly intervals used for the regression models, the models create a large volume of dummy variables. For cluster, 212 variables are created, for time, 23 variables created, and for day one additional variable is created. This variable expansion makes the model a bit difficult to assess, as the model only has three input categorical variables.
+Due to the high number of clusters and hourly intervals used for the regression models, the models created a large volume of dummy variables. For variable cluster, 212 variables are created, for variable time, 23 variables created, and for day one additional variable is created. This variable expansion makes the model variables difficult to assess individually as the model only has three input categorical variables.
 
 ```{r display.model.stats, eval=T, echo=F, message=F, warning=F, include=T, cache=TRUE}
 deviances <- c(mod_1H_pois_dev, mod_1H_qp_dev, mod_1H_nb_dev)
@@ -979,9 +944,9 @@ data.frame(Model=models_stats, Deviance=deviances, Degrees.Freedom=degfrees, AIC
 plot_grid(p_resid_pois, p_resid_qp, p_resid_nb)
 ```
 
-The plots of the residuals vs. the fitted values for Poisson, Quasi-Poisson, and Negative Binomial each indicate heteroscedasticity. The evidence of heteroscedasticity shows increasing variance with as the fitted values increase. The Poisson and Quasi-Poisson appear identical while the Negative Binomial plot is quite similar.
+The plots of the residuals vs. the fitted values for Poisson, Quasi-Poisson, and Negative Binomial each indicate heteroscedasticity. The evidence of heteroscedasticity shows increasing variance as the fitted values increase. The Poisson and Quasi-Poisson appear identical while the Negative Binomial plot is quite similar.
 
-**Zero-Inflated Model:** A Zero-Inflated Model builds a model for a distribution that allows for frequent zero-values observations. The Zero-Inflated models used in this research use a base of Poisson (ZIP) and Negative Binomial (ZINB).
+**Zero-Inflated Model:** A Zero-Inflated Model builds a model for a distribution that allows for frequent zero-value observations. The Zero-Inflated models used in this research use a base of Poisson (ZIP) and Negative Binomial (ZINB).
 
 ```{r model.zerop.1H.intervals, eval=T, echo=F, message=F, warning=F, include=T, cache=TRUE}
 # ZERO INFLATED: POISSON
@@ -1008,7 +973,7 @@ mase_mod_1H_zero_nb <- mase(test_1H$bikes.avail.count, floor(pred_1H_zero_nb))
 
 ### Model Results
 
-To evaluate the 5 models, we made the selection based on the Root-Mean-Square-Error (RMSE), Mean Average Error (MAE), and Mean Absolute Scaled Error (MASE) along with the count of predictions greater than zero when the actual value was zero, noted here as `Missed.Zero`. The Zero-Inflated Poisson based model performed the best according to RMSE, MAE, and MASE followed by Poisson, Quasi-Poisson, and then Zero Inflated Negative Binomial based model and finally Negative Binomial. Assessing the missed zero column, we notice Poisson, Quasi-Poisson and Negative Binomial with the fewest missed zeros at 263 followed by the Zero-Inflated models with 280 missed zeroes each. Overall, the performance of the models falls in a small range with RMSE ranging in 11.2482 to 12.0320. These results show that the average distance of approximately 11 between the predicted values from the model and the values from the dataset. As the earlier plot of bike availability count frequency by cluster showed, zero was the highest frequency but did not represent an outlier within the frequency distribution. Perhaps the zero-inflated models performed worse at correctly predicting zeroes because the zero frequency wasn't actually inflated as compared to the other values.
+To evaluate the 5 models, we made the selection based on the Root-Mean-Square-Error (RMSE), Mean Average Error (MAE), and Mean Absolute Scaled Error (MASE) along with the count of predictions greater than zero when the actual value was zero, noted here as `Missed.Zero`. The Zero-Inflated Poisson based model performed the best according to RMSE, MAE, and MASE followed by Poisson, Quasi-Poisson, and then the Zero Inflated Negative Binomial model and finally Negative Binomial. Assessing the missed zero column, we notice Poisson, Quasi-Poisson and Negative Binomial with the fewest missed zeros at 263 followed by the Zero-Inflated models with 280 missed zeroes each. Overall, the performance of the models falls in a small range with RMSE ranging in 11.2482 to 12.0320. These results show that the average distance of approximately 11 between the predicted values from the model and the values from the dataset. As the earlier plot of bike availability count frequency by cluster showed, zero was the highest frequency but did not represent an outlier within the frequency distribution. Perhaps the zero-inflated models performed worse at correctly predicting zeroes because the zero frequency wasn't actually inflated as compared to the other values.
 
 ```{r model.results.prep, eval=T, echo=F, message=F, warning=F, include=T}
 rmse_1H <- c(rmse_mod_1H_pois, rmse_mod_1H_qp, rmse_mod_1H_nb,
@@ -1092,7 +1057,7 @@ log(bikes) = 3.9063 + \beta_1\cdot cluster + \beta_2 \cdot time + \beta_3 \cdot 
 
 ### Model Results Visualization
 
-The test data dataset consisted of over 17,000 rows for prediction. In order to better understand the predictions from the Poisson model against the actual test data values, the plot displays a subset of 100 predictions and the corresponding actual values. The actual values in red extend to the 0 axis while the blue line does not reach the 0 axis as often, again indicating the inability of the model to accurately predict the true zero values. Upon visual inspection, the lines for prediction and actual values do appear consistent.
+The test data dataset consisted of over 17,000 rows for prediction. To better understand the predictions from the Poisson model against the actual test data values, the plot displays a subset of 100 predictions and the corresponding actual values. The actual values in red extend to the 0 axis while the blue line does not reach the 0 axis as often, again indicating the inability of the model to accurately predict the true zero values. Upon visual inspection, the lines for prediction and actual values do appear consistent.
 
 ```{r display.top.model.preds, eval=T, echo=F, message=F, warning=F, include=T, fig.height=4.5}
 # Modify the number of rows to consider
@@ -1112,15 +1077,13 @@ p_pred_vs_actual <- ggplot() +
 p_pred_vs_actual
 ```
 
-Note on other model considerations: For the predictors, we finalized the inputs as longitude and latitude, anticipating the end user would actually be providing GPS coordinates at the time of use. The day of the week is converted to either Weekday or Weekend, in order to simplify the model. The time of day is converted to the start of the hour. Models were constructed using the 15-minute intervals, but again, due to system constraints the time interval of one hour was selected. Finally, elevation of the cluster was considered, as anecdotally, stations with higher elevations have fewer returned bikes. The elevation predictor resulted in little significance to the model and thus was omitted.
-
-Also considered, but not used was the time series forecasting model approach. Because the forecasting did not allow for instance predictions and would have relied on consistent up-to-date info, we decided not to include the forecasting approach in the final report.
+Note on other model considerations: Elevation of the cluster was considered, as anecdotally, stations with higher elevations have fewer returned bikes. The elevation predictor resulted in little significance to the model and thus was omitted. Also considered, but not used was the time series forecasting model approach. As the forecasting did not allow for instance predictions and would have relied on consistent up-to-date info, we decided not to include the forecasting approach in the final report.
 
 ---
 
 ### Real-World Prediction Proof of Concept
 
-With an eye toward making the model real-world functional, a simple `R` function was written to predict the number of bikes available based on the user-friendly inputs. First, the longitude and latitude are translated into a cluster identifier based on a nearest neighbor search of the docking stations. Then, with the cluster identifier and other user inputs, the GLM regression model is executed to predict the number of available bikes. The result of three trials indicate the number of available bikes and cluster number. The neighborhood provided is displayed to give the user reference of the longitude and latitude entered. The user-friendly inputs:
+With an eye toward making the model functional in the real world, a simple `R` function was written to predict the number of bikes available based on the user-friendly inputs. First, the longitude and latitude are translated into a cluster identifier based on a nearest neighbor search of the docking stations. Then, with the cluster identifier and other user inputs, the GLM regression model is executed to predict the number of available bikes. The result of three trials indicate the number of available bikes and cluster number. The neighborhoods provided are displayed to give the user reference of the longitude and latitude entered. The user-friendly inputs:
 
 \begin{myitemize}
     \item Latitude and longitude (location on map)
@@ -1203,25 +1166,21 @@ data.frame(Neighborood=hoods, Longitude=lons, Latitude=lats, Time=times, Day=day
 
 ---
 
-## Conclusion & Next Steps 
+## Conclusion 
 
-Using the data provided by the Citi Bike operating system, we constructed a model to predict Citi Bike availability for a given day and time in Brooklyn with the possibility of extension across all of New York City. Using data science principles and common model algorithms, a valuable prediction model was constructed for a user-friendly interaction. Based on location, day of the week, and time of day, the combination of a hierarchical clustering and Poisson count model algorithm can predict the number of available Citi Bikes within a quarter mile. The overall prediction model provides potential real-world application for individuals planning transportation options ahead of time across New York City.
+Using the Citi Bike dataset for NYC-based trips in August through October 2022, we identified a consistent pattern of use dependent on time of day and day of the week. The pattern persists week over week for the months under review. The majority of users are member which indicates the availability of bikes will be dependent on work schedules during weekdays. The surplus and shortage count of bikes by docking station denotes the uneven flow of bikes in some neighborhoods of New York City. The surplus and shortage counts confirm the practice of rebalancing by Citi Bike to ensure availability of bikes despite revealing a high frequency of zero bike availability.
 
-In assessing the count models, the Poisson model was selected based on its RMSE value and ability to accurately predict zero availability. The false positive of bike availability when zero bikes available would greatly impact user experience and thus played a key factor in the model selection decision.
+We constructed a model to predict Citi Bike availability in Brooklyn with the possibility of extension across all of New York City. Using data science principles and common model algorithms, a valuable prediction model was constructed for a user-friendly interaction. Based on location, day of the week, and time of day, the combination of a hierarchical clustering and Poisson count model algorithm can predict the number of available Citi Bikes within a quarter mile. The overall prediction model provides a potential real-world application for individuals planning transportation options ahead of time across New York City.
 
-The exploratory analysis of the Citi Bike dataset for NYC-based trips in August through October 2022 shows a consistent pattern of use dependent on time of day and day of the week. The pattern persists week over week for the given month. The majority of users are member which indicates the availability of bikes will be dependent on work schedules during weekdays. The surplus and shortage count of bikes by docking station denotes the uneven direction of bikes in some sections of New York City. The shortage (and surplus) counts confirm the practice of rebalancing by Citi Bike to ensure availability of bikes. The duration of bike trips may not play as large a factor in bike availability compared to time of day, day of week, and directional flow of bikes throughout the city.
-
+In assessing the count models, the Poisson model was selected based on the model metric scores and ability to accurately predict zero availability. The false positive of bike availability when zero bikes available would greatly impact user experience and thus played a key factor in the model selection decision.
 
 ### Future Work
 
-Given the working prediction model, the future consideration is the deployment of the prediction model as a simple website or smartphone app to get the model into users' hands for real-world feedback. With the use of the model on a smartphone, the location input could come directly from the GPS location of the device to ensure a truly user-friendly experience.
+Given the working prediction model, a future consideration is the deployment of the prediction model as a simple website or smartphone app to get the model into users' hands for real-world feedback. With the use of the model on a smartphone, the location input could come directly from the GPS location of the device to ensure a user-friendly experience.
 
-Due to the system constraints and resulting model decisions, we believe several opportunities to improve the model accuracy can be followed. First, we believe a higher accuracy of zero availability predictions would provide a better user experience. We recognize a prediction of 10 available bikes instead of 8 would not be the headache to a user, whereas a prediction of 2 available bikes instead of 0 would be quite frustrating. Our first direction of improvement would be the improvement of accurate zero bike predictions.
+Due to the computing system constraints and resulting model decisions, we believe several opportunities can improve the model accuracy. An auto-regressive algorithm may provide a higher accuracy of zero availability predictions given the time measurement of the dataset. We recognize a prediction of 10 available bikes instead of 8 would not be the headache to a user, whereas a prediction of 2 available bikes instead of 0 would be quite frustrating. Also, basing the model on 15-minute intervals instead of the one-hour intervals would also provide greater granularity to the prediction model. The researchers understand the limitation exerted by the two weeks of availability data, so to improve the model, we anticipate a greater timeframe of availability data would improve the model.
 
-To give the model and greater user base, the obvious next step would be the inclusion of a model covering all the docking stations of New York City. With the majority of docking stations in Manhattan, a model of the entire city would be provide value to a greater audience. Currently, the clustering of docking stations is static, so to improve bike availability based on location, a real-time clustering approach to identify all docking stations within a quarter mile of the user at the time of use would be beneficial. Finally, the researchers understand the limitation exerted by the two-week availability data, so to improve the model, a greater timeframe of availability data we anticipate would improve the model.
-
-Auto-regressive
-Spatio-XXX
+Finally, an obvious next step would be the inclusion of all the docking stations across New York City. With the majority of docking stations in Manhattan, a model of the entire city would provide value to a greater audience. In conjunction with the addition of all docking stations, a real-time clustering approach to identify all docking stations within a quarter mile of the chosen location at the time of use would be of greater benefit. 
 
 ---
 
@@ -1229,6 +1188,7 @@ Links to add:
 https://ride.citibikenyc.com/system-data
 https://github.com/MobilityData/gbfs/blob/master/gbfs.md
 https://ride.citibikenyc.com/system-data/operating-reports
+(https://data.cityofnewyork.us/City-Government/2010-Neighborhood-Tabulation-Areas-NTAs-/cpf4-rkhq)
 
 ## References
 
