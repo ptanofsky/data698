@@ -18,11 +18,9 @@ nocite: '@*'
 
 ### Abstract
 
-Using the Citi Bike dataset for NYC-based trips in August through October 2022, we identified a consistent pattern of use dependent on time of day and day of the week. The pattern persists week over week for the months under review. The majority of users are member which indicates the availability of bikes will be dependent on work schedules during weekdays. The surplus and shortage count of bikes by docking station denotes the uneven flow of bikes in some neighborhoods of New York City. The surplus and shortage counts confirm the practice of rebalancing by Citi Bike to ensure availability of bikes despite revealing a high frequency of zero bike availability.
+The Citi Bike bikeshare in New York City provides a solution for the "first-" and "last-mile" connectivity in urban areas for individuals wanting to access the subway or bus line without walking. Citi Bike offers real-time availability of bicycles through the Citi Bike app and website, but the availability of a bicycle at the docking station upon arrival is not guaranteed at any time. The availability of bicycles is dependent on the riders themselves and the rebalancing strategies of Citi Bike operators. This project aims to accomplish three goals: 1) Determine the flow of bicycles throughout the Citi Bike system in New York City to identify neighborhoods with a surplus or shortage of Citi Bike availability. 2) Identify system rebalancing and its impact on the level of availability at a given station or cluster of stations. 3) Determine the best model to accurately predict the availability of bicycles based on day of the week, time of day, and location.
 
-We constructed a model to predict Citi Bike availability in Brooklyn with the possibility of extension across all of New York City. Using data science principles and common model algorithms, a valuable prediction model was constructed for a user-friendly interaction. Based on location, day of the week, and time of day, the combination of a hierarchical clustering and Poisson count model algorithm can predict the number of available Citi Bikes within a quarter mile. The overall prediction model provides a potential real-world application for individuals planning transportation options ahead of time across New York City.
-
-In assessing the count models, the Poisson model was selected based on the model metric scores and ability to accurately predict zero availability. The false positive of bike availability when zero bikes available would greatly impact user experience and thus played a key factor in the model selection decision.
+We examine the bike trip data from August through October 2022 and the bike availability counts by docking station for two weeks in November to identify the patterns of use and distinguishing factors to bike availability and in doing so reveal the challenges of operational rebalancing and frequency of zero bike availability. In order to construct a real-world, user-friendly model, we apply two modeling techniques to the bike availability data. First, we cluster the Brooklyn docking stations to establish quarter-mile based clusters informed by acceptable walking distance. Second, we apply count data regression models to predict bike availability counts by cluster. The selected algorithm is a Poisson-based model with a comparable RMSE to the other attempted models and the lowest count of missed zero predictions. Based on the selected count data regression model of clustered docking stations, a working proof of concept was created to provide true bike availability predictions for location, day, and time.
 
 **Key words: _Bikeshare, Count Data, Poisson, Negative Binomial, Zero-Inflated_**
 
@@ -629,7 +627,7 @@ The line chart "Docking Station 3582" depicts the number of available bikes ever
 
 ## Hierarchical Clustering
 
-With over 1,700 stations and a walking distance of 400 meters (or one quarter of a mile), the clustering of all NYC docking stations results in over 700 unique clusters. The count of clusters caused vector memory issues in RStudio. In order to continue the research approach, the stations under consideration were decreased to one borough -- Brooklyn. Brooklyn contains 474 docking stations. Using the hierarchical clustering from the `stats` R library, with a distance cutoff of 400 meters, the result is 213 clusters or a little over 2 docking stations per cluster. The map plot shows the docking stations colored by cluster number.
+With over 1,700 stations and a walking distance of 400 meters (or one quarter of a mile), the clustering of all NYC docking stations results in over 700 unique clusters. The count of clusters caused vector memory issues in RStudio. In order to continue the research approach, the stations under consideration were decreased to one borough -- Brooklyn. Brooklyn contains 474 docking stations. Using the hierarchical clustering from the `stats` R library, with a distance cutoff of 400 meters, the result is 213 clusters or a little over 2 docking stations per cluster. This distance-based technique establishes quarter-mile based clusters informed by acceptable walking distance as one variable of input to the following count data prediction models. The map plot shows the docking stations colored by cluster number.
 
 \begin{myitemize}
     \item \textbf{Borough:} Brooklyn
@@ -647,7 +645,7 @@ With over 1,700 stations and a walking distance of 400 meters (or one quarter of
 
 The histogram shows the frequency of bike availability counts across all the Brooklyn clusters for each one-hour interval for the two-week timespan. The value of zero is the most frequent value followed by two. A plateau is visible around 25 which marks a station capacity. A similar plateau also occurs around 60, close to double the single station capacity which would be expected given most clusters are two docking stations. The plot confirms the likelihood of zero bike availability.
 
-The prediction model ultimately based the independent variable time on the hour of the day, hence the transition from 15-minute intervals to one-hour intervals in the research.
+The prediction model ultimately based the independent variable time on the hour of the day, hence the transition from 15-minute intervals to one-hour intervals in the research and analysis.
 
 ```{r display.bk.freqOfZero.by.cluster, echo=F, message=F, warning=F, include=T, fig.height=4, cache=T}
 # Read in the csv of the API responses which have been wrangled together
@@ -777,11 +775,11 @@ p_distro_avail_counts
 
 ## Count Data Regression Modeling
 
-As for the regression modeling, we selected the Generalized Linear Models based on Poisson, Quasi-Poisson, Negative Binomial and Zero-Inflated algorithms. The availability data meets most of the Poisson regression criteria. Response variable is a count per unit. The observations are independent. Unfortunately, the variance is greater than the mean, which indicates overdispersion in the data. The mean of the bikes available by cluster is 36.34474 and the population variance over the dataset is 908.1704 indicating overdispersion exists. Due to overdispersion, we selected Negative Binomial and Quasi-Poisson as base algorithms in addition to Poisson. The Zero-Inflated algorithm was chosen based on the previous observation in which zero bike availability is the most common value across all the docking-station clusters.
+To predict bike availability counts by cluster, we apply count data regression models. We selected the Generalized Linear Models based on Poisson, Quasi-Poisson, Negative Binomial and Zero-Inflated algorithms. The availability data meets most of the Poisson regression criteria. Response variable is a count per unit. The observations are independent. Unfortunately, the variance is greater than the mean, which indicates overdispersion in the data. The mean of the bikes available by cluster is 36.34474 and the population variance over the dataset is 908.1704 indicating overdispersion exists. Due to overdispersion, we selected Negative Binomial and Quasi-Poisson as base algorithms in addition to Poisson. The Zero-Inflated algorithm was chosen based on the previous observation in which zero bike availability is the most common value across all the docking-station clusters.
 
 For evaluating the models, the two full weeks of bike availability data spanning Oct. 31 through Nov. 13 are partitioned into a training set of 75% and a test set of 25%. Given the common, yet inconsistent occurrences of rebalancing identified previously, we decided to not impute the instances of rebalancing, but instead keep the data accurate in an attempt at a more valuable model. The dataset follows a time series pattern but in order to predict a specific day and time of the week agnostic of date, regression models for count data are used. 
 
-The model inputs represent a map-based application in which a user selects a point on a map along with the type of day and time to receive an estimation of the bikes available at that future date, time, and location. Based on the user-provided longitude and latitude, a nearest neighbor search is performed to identify the nearest docking station. The translation of the longitude and latitude to the corresponding cluster of the nearest-neighbor docking station would be the input to the model. The categorical variable type of day, weekday or weekend, was chosen due to the differing usage patterns on weekdays and weekends. Within each category, weekday and weekend, the similarities allowed us to simplify the model to just two values. The time of day is converted to the start of the hour. Models were constructed using the 15-minute intervals, due to computing system constraints the time interval of one hour was selected. The dependent variable is the count of available bikes with the floor function applied to ensure a whole number prediction.
+The model inputs mimic a map-based application in which a user selects a point on a map along with the type of day and time to receive an estimation of the bikes available at that future date, time, and location. Based on the user-provided longitude and latitude, a nearest neighbor search is performed to identify the nearest docking station. The translation of the longitude and latitude to the corresponding cluster of the nearest-neighbor docking station would be the input to the model. The categorical variable type of day, weekday or weekend, was chosen due to the differing usage patterns on weekdays and weekends. Within each category, weekday and weekend, the similarities allowed us to simplify the model to just two values. The time of day is converted to the start of the hour. Models were constructed using the 15-minute intervals, due to computing system constraints the time interval of one hour was selected. The dependent variable is the count of available bikes with the floor function applied to ensure a whole number prediction.
 
 * Independent variables
     + Cluster identifier converted from longitude and latitude (categorical) 
@@ -924,8 +922,6 @@ p_resid_nb <- ggplot(mod_1H_nb, aes(x = .fitted, y = .resid)) +
 p_resid_nb <- p_resid_nb +  xlim(-5, 10)
 ```
 
-Due to the high number of clusters and hourly intervals used for the regression models, the models created a large volume of dummy variables. For variable cluster, 212 variables are created, for variable time, 23 variables created, and for day one additional variable is created. This variable expansion makes the model variables difficult to assess individually as the model only has three input categorical variables.
-
 ```{r display.model.stats, eval=T, echo=F, message=F, warning=F, include=T, cache=TRUE}
 deviances <- c(mod_1H_pois_dev, mod_1H_qp_dev, mod_1H_nb_dev)
 degfrees <- c(mod_1H_pois_df, mod_1H_qp_df, "NA")
@@ -939,6 +935,9 @@ data.frame(Model=models_stats, Deviance=deviances, Degrees.Freedom=degfrees, AIC
   kable_styling(latex_options = "HOLD_position")
 ```
 
+Due to the high number of clusters and hourly intervals used for the regression models, the models created a large volume of dummy variables. For variable cluster, 212 variables are created, for variable time, 23 variables created, and for day one additional variable is created. This variable expansion makes the model variables difficult to assess individually as the model only has three input categorical variables.
+
+The results of the first three models identical results of deviance and degrees of freedom for Poison and Quasi-Poisson as expected. The Negative Binomial model did produce a lower AIC than the Poisson model indicating a slightly better model.
 
 ```{r display.resid.plots, eval=T, echo=F, message=F, warning=F, include=T, fig.height=5}
 plot_grid(p_resid_pois, p_resid_qp, p_resid_nb)
@@ -946,7 +945,7 @@ plot_grid(p_resid_pois, p_resid_qp, p_resid_nb)
 
 The plots of the residuals vs. the fitted values for Poisson, Quasi-Poisson, and Negative Binomial each indicate heteroscedasticity. The evidence of heteroscedasticity shows increasing variance as the fitted values increase. The Poisson and Quasi-Poisson appear identical while the Negative Binomial plot is quite similar.
 
-**Zero-Inflated Model:** A Zero-Inflated Model builds a model for a distribution that allows for frequent zero-value observations. The Zero-Inflated models used in this research use a base of Poisson (ZIP) and Negative Binomial (ZINB).
+**Zero-Inflated Model:** A Zero-Inflated Model builds a model for a distribution that allows for frequent zero-value observations. The Zero-Inflated models used in this research use a base of Poisson (ZIP) and Negative Binomial (ZINB). The summary statistics and plots for the Zero-Inflated models are not included as the summary objects did not contain the same attributes as the previous three models.
 
 ```{r model.zerop.1H.intervals, eval=T, echo=F, message=F, warning=F, include=T, cache=TRUE}
 # ZERO INFLATED: POISSON
@@ -973,7 +972,7 @@ mase_mod_1H_zero_nb <- mase(test_1H$bikes.avail.count, floor(pred_1H_zero_nb))
 
 ### Model Results
 
-To evaluate the 5 models, we made the selection based on the Root-Mean-Square-Error (RMSE), Mean Average Error (MAE), and Mean Absolute Scaled Error (MASE) along with the count of predictions greater than zero when the actual value was zero, noted here as `Missed.Zero`. The Zero-Inflated Poisson based model performed the best according to RMSE, MAE, and MASE followed by Poisson, Quasi-Poisson, and then the Zero Inflated Negative Binomial model and finally Negative Binomial. Assessing the missed zero column, we notice Poisson, Quasi-Poisson and Negative Binomial with the fewest missed zeros at 263 followed by the Zero-Inflated models with 280 missed zeroes each. Overall, the performance of the models falls in a small range with RMSE ranging in 11.2482 to 12.0320. These results show that the average distance of approximately 11 between the predicted values from the model and the values from the dataset. As the earlier plot of bike availability count frequency by cluster showed, zero was the highest frequency but did not represent an outlier within the frequency distribution. Perhaps the zero-inflated models performed worse at correctly predicting zeroes because the zero frequency wasn't actually inflated as compared to the other values.
+To evaluate the 5 models, we made the selection based on the Root-Mean-Square-Error (RMSE), Mean Average Error (MAE), and Mean Absolute Scaled Error (MASE) along with the count of predictions greater than zero when the actual value was zero, noted here as `Missed.Zero`. The Zero-Inflated Poisson based model performed the best according to RMSE, MAE, and MASE followed by Poisson, Quasi-Poisson, and then the Zero Inflated Negative Binomial model and finally Negative Binomial. Assessing the missed zero column, we notice Poisson, Quasi-Poisson and Negative Binomial with the fewest missed zeros at 263 followed by the Zero-Inflated models with 280 missed zeroes each. Overall, the performance of the models falls in a small range with RMSE ranging in 11.2482 to 12.0320. These results show that the average distance of approximately 11 between the predicted values from the model and the values from the dataset. As the earlier plot of bike availability count frequency by cluster showed, zero was the highest frequency but did not represent an outlier within the frequency distribution. Perhaps the zero-inflated models performed worse at correctly predicting zeroes because the zero frequency was not inflated as compared to the other values.
 
 ```{r model.results.prep, eval=T, echo=F, message=F, warning=F, include=T}
 rmse_1H <- c(rmse_mod_1H_pois, rmse_mod_1H_qp, rmse_mod_1H_nb,
@@ -1184,15 +1183,19 @@ Finally, an obvious next step would be the inclusion of all the docking stations
 
 ---
 
-Links to add:
-https://ride.citibikenyc.com/system-data
-https://github.com/MobilityData/gbfs/blob/master/gbfs.md
-https://ride.citibikenyc.com/system-data/operating-reports
-(https://data.cityofnewyork.us/City-Government/2010-Neighborhood-Tabulation-Areas-NTAs-/cpf4-rkhq)
-
 ## References
 
 <div id="refs"></div>
+
+### Data Sources
+
+- https://ride.citibikenyc.com/system-data (Bike trips)
+
+- https://ride.citibikenyc.com/system-data/operating-reports (Rebalancing counts)
+
+- https://github.com/MobilityData/gbfs/blob/master/gbfs.md (Availability API)
+
+- https://data.cityofnewyork.us/City-Government/2010-Neighborhood-Tabulation-Areas-NTAs-/cpf4-rkhq (NTA neighborhoods)
 
 ## Appendix with Code
 
