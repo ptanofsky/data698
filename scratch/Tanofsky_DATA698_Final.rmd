@@ -643,7 +643,7 @@ With over 1,700 stations and a walking distance of 400 meters (or one quarter of
 
 ### Bike Availability by Cluster
 
-The histogram "Frequency of Hourly Available Bike Counts for Brooklyn Clusters" shows the frequency of bike availability counts across all the Brooklyn clusters for each one-hour interval for the two-week timespan. The value of zero is the most frequent value followed by two. A plateau is visible around 25 which marks a station capacity. A similar plateau also occurs around 60, close to double the single station capacity which would be expected given most clusters are two docking stations. The plot confirms the likelihood of zero bike availability. XXX give the bike availability mean, range, and standard deviation.XXX
+The histogram below shows the frequency of bike availability counts across all the Brooklyn clusters for each one-hour interval for the two-week timespan. The value of zero is the most frequent value followed by two. A plateau is visible around 25 which marks a station capacity. A similar plateau also occurs around 60, close to double the single station capacity which would be expected given most clusters are two docking stations. The plot confirms the likelihood of zero bike availability.
 
 The prediction model ultimately based the independent variable time on the hour of the day, hence the transition from 15-minute intervals to one-hour intervals in the research and analysis.
 
@@ -760,7 +760,7 @@ tab_1H_df$Var1 <- as.integer(tab_1H_df$Var1)
 
 # Distribution of count results
 p_distro_avail_counts <- tab_1H_df %>%
-  filter(Var1 < 150) %>%
+  filter(Var1 < 250) %>%
   ggplot(aes(x=Var1, y=Freq)) +
   geom_bar(stat="identity") +
   labs(x='Availability Count',
@@ -775,11 +775,11 @@ p_distro_avail_counts
 
 ## Count Data Regression Modeling
 
-To predict the bike availability count by cluster, we apply count data regression models. We selected Generalized Linear Models based on Poisson, Quasi-Poisson, Negative Binomial and Zero-Inflated algorithms. The availability data meets most of the Poisson regression criteria. The response variable is a count per unit of time. The observations are independent. Unfortunately, the variance is greater than the mean, which indicates overdispersion in the data. The mean of the bikes available by cluster is 36.34474 and the population variance over the dataset is 908.1704 indicating overdispersion exists. Due to overdispersion, we selected Negative Binomial and Quasi-Poisson as base algorithms in addition to Poisson. The Zero-Inflated algorithm was chosen based on the previous observation in which zero-bike availability is the most common value across all the docking-station clusters.
+To predict the bike availability count by cluster, we apply count data regression models. We selected Generalized Linear Models based on Poisson, Quasi-Poisson, Negative Binomial and Zero-Inflated algorithms. The availability data meets most of the Poisson regression criteria. The response variable is a count per unit of time. The observations are independent. Unfortunately, the variance is greater than the mean, which indicates overdispersion in the data. The mean of the bikes available by cluster is 36.34474 and the population variance over the dataset is 908.1704 indicating overdispersion exists. The range of available bikes by cluster is 0 to 237. Due to overdispersion, we selected Negative Binomial and Quasi-Poisson as base algorithms in addition to Poisson. The Zero-Inflated algorithm was chosen based on the previous observation in which zero-bike availability is the most common value across all the docking-station clusters.
 
 For evaluating the models, the two full weeks of bike availability data spanning Oct. 31 through Nov. 13 are partitioned into a training set of 75% and a test set of 25%. Given the common, yet inconsistent occurrences of rebalancing identified previously, we decided to not impute the instances of rebalancing, but instead keep the data accurate in an attempt at a more accurate model. The dataset follows a time series pattern but in order to predict a specific day and time of the week agnostic of date, regression models for count data are used instead of time-series forecasting. 
 
-The model inputs mimic a map-based application in which a user selects a point on a map along with the type of day and time to receive a prediction of the bikes available at that future date, time, and location. Based on the user-provided longitude and latitude, a nearest neighbor search is performed to identify the nearest docking station. This translation of the longitude and latitude to the corresponding cluster of the nearest-neighbor docking station is be the input to the model. The categorical variable type of day, weekday or weekend, was chosen due to the differing usage patterns on weekdays and weekends. Within each category, weekday and weekend, the similarities allowed us to simplify the model to just two values instead of accounting for each day separately. The time of day is converted to the start of the hour. Models were constructed using the 15-minute intervals, but due to computing system constraints the time interval of one hour was selected. The dependent variable is the count of available bikes with the floor function applied to ensure a whole number prediction.
+The model inputs mimic a map-based application in which a user selects a point on a map along with the type of day and time to receive a prediction of the bikes available at that future date, time, and location. Based on the user-provided longitude and latitude, a nearest neighbor search is performed to identify the nearest docking station. This translation of the longitude and latitude to the corresponding cluster of the nearest-neighbor docking station is be the input to the model. The categorical variable type of day, weekday or weekend, was chosen due to the differing usage patterns on weekdays and weekends. Within each category, weekday and weekend, the similarities allowed us to simplify the model to  two values instead of accounting for each day. The time of day is converted to the start of the hour. Models were constructed using 15-minute intervals, but due to computing system constraints, the time interval selected was one hour. The dependent variable is the available bike count with the floor function applied to ensure a whole number prediction.
 
 * Independent variables
     + Cluster identifier converted from longitude and latitude (categorical) 
@@ -943,7 +943,7 @@ The results of the first two models show identical results of deviance and degre
 plot_grid(p_resid_pois, p_resid_qp, p_resid_nb)
 ```
 
-The plots of the residuals versus the fitted values for Poisson, Quasi-Poisson, and Negative Binomial each indicate heteroscedasticity. The evidence of heteroscedasticity shows increasing variance as the fitted values increase. The Poisson and Quasi-Poisson appear identical while the Negative Binomial plot is also quite similar.
+The plots of the residuals versus the fitted values for Poisson, Quasi-Poisson, and Negative Binomial each indicate heteroscedasticity. The evidence of heteroscedasticity shows increasing variance as the fitted values increase. The Poisson and Quasi-Poisson appear identical while the Negative Binomial plot is also similar.
 
 **Zero-Inflated Model:** A Zero-Inflated Model builds a model for a distribution that allows for frequent zero-value observations. The Zero-Inflated models used in this research use a base of Poisson (ZIP) and Negative Binomial (ZINB). The summary statistics and plots for the Zero-Inflated models are not included as the summary objects did not contain the same attributes as the previous three models.
 
@@ -1054,7 +1054,7 @@ Selection: Poisson regression equation
 log(bikes) = 3.9063 + \beta_1\cdot cluster + \beta_2 \cdot time + \beta_3 \cdot day
 \end{equation}
 
-### Model Results Visualization
+### Model Results Visualizations
 
 The test data dataset consisted of over 17,000 rows for prediction. To better understand the predictions from the Poisson model against the actual test data values, the plot displays a subset of 100 predictions and the corresponding actual values. The actual values in red extend to the 0 axis while the blue line does not reach the 0 axis as often, indicating the inability of the model to accurately predict the true zero values. Upon visual inspection, the lines for prediction and actual values do appear consistent.
 
@@ -1075,6 +1075,21 @@ p_pred_vs_actual <- ggplot() +
 
 p_pred_vs_actual
 ```
+
+```{r display.top.model.preds.hist, eval=T, echo=F, message=F, warning=F, include=T, fig.height=4.5}
+# Distribution of count predictions
+p_distro_avail_count_preds <- df_for_plot %>%
+  ggplot(aes(x=Pois.Prediction)) +
+  geom_histogram(binwidth=1) +
+  labs(x='Availability Count',
+       y='Frequency',
+       title='Frequency of Hourly Available Bike Count Predictions')
+
+# Display plot
+p_distro_avail_count_preds
+```
+
+The above histogram shows the frequency of available bike predictions for the test dataset. Overall, the distribution is similarly right skewed to the histogram of actual availability counts by cluster. This histogram pinpoints the lack of predictions below 10 bikes and thus an opportunity for better accuracy at lower counts.
 
 Other model considerations: Elevation of the cluster as an independent variable was initially included, as anecdotally, stations with higher elevations have fewer returned bikes. The elevation predictor resulted in little significance to the model and thus was omitted. Also considered, but not used was the time-series forecasting model approach. As the forecasting did not allow for instance predictions, we decided not to include the forecasting approach in the final report.
 
